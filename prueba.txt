@@ -1,0 +1,70 @@
+program CasoValidoCompleto;
+var
+a, b, c, i : int;
+promedio : float;
+mensaje : string;
+datos : int[5];
+
+int suma(x : int, y : int) [
+var
+resultado : int;
+{
+resultado = x + y;
+return resultado;
+}
+];
+
+void mostrar(valor : int, texto : string) [
+{
+print(texto, valor);
+return;
+}
+];
+
+main {
+a = 10;
+b = 20;
+c = suma(a, b);
+promedio = 3.5;
+mensaje = "resultado";
+datos[0] = c;
+print(mensaje, c, promedio);
+
+if ((a < b) && (c >= 30)) {
+    mostrar(c, "c correcto");
+} else {
+    print("condicion falsa");
+};
+
+while (a < 13) {
+    a += 1;
+    print("while", a);
+};
+
+do {
+    b -= 1;
+    print("do while", b);
+} while (b > 18);
+
+for (i = 0; i < 5; i++) {
+    datos[i] = i * 2;
+    if (datos[i] % 2 == 0) {
+        print("par", datos[i]);
+    } else {
+        print("impar", datos[i]);
+    };
+};
+
+switch (i) {
+case 5:
+    print("termino for");
+    break;
+default:
+    print("valor diferente");
+};
+
+c = (a < b) ? a + b : c - 1;
+
+print("final", c);
+}
+end

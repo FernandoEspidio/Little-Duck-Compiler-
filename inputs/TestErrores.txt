@@ -1,0 +1,26 @@
+program test_errores;
+
+var x, y : int;
+    z : float;
+
+main {
+    x = 10;
+    y = ;
+    z = 3.14;
+
+    if (x > 0) {
+        x = x + 1;
+        y = y * ;
+    };
+
+    print("Hola", , x);
+
+    x += 5;
+    x = (5 + ;
+    z = 2.5;
+
+    while (x < 100) {
+        x++;
+    };
+}
+end

@@ -1,0 +1,49 @@
+program test_completo;
+
+var i, j : int;
+    suma : float;
+
+void calcular(x : int, y : int) [
+    var resultado : int;
+    {
+        resultado = x + y;
+        return resultado;
+    }
+];
+
+main {
+    # Comentario de prueba
+    i = 0;
+    suma = 0.0;
+
+    """ Bloque
+    multilinea """
+
+    for (i = 0; i < 10; i++) {
+        suma += 1.5;
+        if (i == 5) {
+            break;
+        };
+        if (i % 2 == 0) {
+            continue;
+        };
+    };
+
+    switch (i) {
+        case 1:
+            print("uno");
+        case 2:
+            print("dos");
+        default:
+            print("otro");
+    };
+
+    do {
+        i--;
+    } while (i > 0 && suma < 100.0);
+
+    while (i < 100 || j != 0) {
+        i += 1;
+    };
+}
+end
