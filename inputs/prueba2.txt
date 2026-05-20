@@ -1,0 +1,83 @@
+program errores_controlados_extendido;
+
+var
+  x, y, i, resultado : int;
+  datos : int[5];
+
+int sumar(a: int, b: int) [
+  {
+    return a + b;
+  }
+];
+
+main
+{
+  # Error sintactico: la gramatica no permite declarar var dentro del body de main
+  var local : int;
+
+  # Error sintactico: expresion incompleta
+  x = ;
+
+  # Error lexico: @ no pertenece al lenguaje
+  y = 10 @ 3;
+
+  # Error sintactico especifico dentro de print:
+  # hay una coma, pero falta una expresion despues de la coma
+  print("valor de x:", x, );
+
+  # Error sintactico: falta un argumento despues de la coma
+  resultado = sumar(5, );
+
+  # Error sintactico: acceso a arreglo mal formado
+  # falta cerrar el corchete antes de hacer la asignacion
+  datos[i = 100;
+
+  # Error sintactico: asignacion compuesta sin expresion
+  y += ;
+
+  """
+  Error sintactico:
+  falta el punto y coma despues del if.
+  El parser deberia reportar error cuando encuentre el siguiente statement.
+  """
+  if (y > 0)
+  {
+    print("positivo");
+  }
+
+  print("esta linea ayuda a probar recuperacion despues del if");
+
+  # Error sintactico: falta cerrar el parentesis de la condicion del while
+  while (x < 10
+  {
+    x++;
+  };
+
+  # Error sintactico: falta el primer punto y coma dentro del for
+  for (i = 0 i < 5; i++)
+  {
+    print(i);
+  };
+
+  # Error sintactico: falta ':' despues de case 1
+  switch (y)
+  {
+    case 1
+      print("uno");
+    case 2:
+      print("dos");
+    default:
+      print("otro");
+  };
+
+  # Error lexico: simbolos desconocidos adicionales
+  x = 5 ^ 2;
+  y = 3 ~ 1;
+
+  # Error lexico: string sin cerrar
+  print("este string no cierra);
+
+  # Esta linea permite ver si el parser logra recuperarse despues del string incompleto
+  print("fin del caso de errores");
+}
+end

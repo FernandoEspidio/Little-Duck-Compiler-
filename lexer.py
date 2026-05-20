@@ -351,8 +351,8 @@ def shorten_value(value, limit=40):
     return text[:15] + " (...) " + text[-15:]
 
 # Función para imprimir los tokens por línea en el formato que se pidió
-def printTokens(source_code, patokenizer, verbose=True):
-    if verbose:
+def printTokens(source_code, patokenizer, debug=True):
+    if debug:
         # Se divide el código fuente en líneas para poder mostrar la línea
         # completa junto con los tokens que aparecen en esa línea
         source_lines = source_code.splitlines()
@@ -375,7 +375,7 @@ def printTokens(source_code, patokenizer, verbose=True):
                     f"lexpos: {tok['lexpos']:<5} "
                 )
 
-    # Los errores siempre se muestran, sin importar el modo verbose
+    # Los errores siempre se muestran, sin importar el modo debug
     if patokenizer.errors:
         print("\nErrores lexicos:")
 
