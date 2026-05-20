@@ -1312,7 +1312,7 @@ def analyze_file(fileName, debug=False):
 Procesa todos los archivos .txt del folder inputs/ y escribe el resultado
 detallado (con token stream y traza) en outputs/ con el mismo nombre.
 
-Esta funcion siempre usa modo debug para que los archivos de output
+Esta funcion puede usar el modo debug para que los archivos de output
 sirvan como evidencia completa de cada caso de prueba en el reporte.
 """
 def run_test_cases(inputs_dir=INPUTS_DIR, outputs_dir=OUTPUTS_DIR):
@@ -1338,7 +1338,7 @@ def run_test_cases(inputs_dir=INPUTS_DIR, outputs_dir=OUTPUTS_DIR):
 
         with open(output_path, "w", encoding="utf-8") as out_file:
             with redirect_stdout(out_file):
-                analyze_file(input_path, debug=True)
+                analyze_file(input_path, debug=False)
 
         print(f"  {input_path}  ->  {output_path}")
 
