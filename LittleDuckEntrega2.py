@@ -1,4 +1,14 @@
-# Lexer con PLY - Little Duck
+# Little Duck
+# Equipo 5
+
+# Integrantes:
+"""
+Abdiel Fritsche Barajas A01234933
+Luis Santiago Sauma Peñaloza A00836418
+Fernando Espidio Santamaria A00837570
+Saúl Emilio Delgado Garza A01285188
+Michelle González Candanosa A00837313
+"""
 
 import os
 import sys
@@ -8,11 +18,12 @@ from contextlib import redirect_stdout
 import ply.lex as lex
 
 """
-Se implementa el tokenizer con PLY acorde con la documentacion y definicion de tokens en el reporte
-Se hace la clase para mantener una estructura un poco mas ordenada compuesta del lexer y el parser
+Implementación del tokenizer con PLY (Definición de tokens en el reporte Entrega 1)
+
+Clase Tokenizer para estructurar de mejor manera el lexer y parser
 """
 class Tokenizer:
-    # Se define la lista de palabras reservadas
+    # Lista de palabras reservadas
     reserved = {
         "print": "KEYWORD_PRINT",
         "program": "KEYWORD_PROGRAM",
@@ -91,8 +102,8 @@ class Tokenizer:
         "ERROR_INCOMPLETE_STRING",
     ] + list(reserved.values())
 
-    # Se establecen las expresiones regulares para cada token bajo la forma de string, ya que 
-    # son directas y no requieren validaciones adicionales
+    # Se establecen las expresiones regulares para cada token bajo la forma de string, ya que son directas y no requieren validaciones adicionales
+
     # Delimitadores
     t_LBRACE = r"\{"
     t_RBRACE = r"\}"
@@ -258,7 +269,6 @@ class Tokenizer:
     # Funcion para calcular la columna 1-indexed usando la posicion absoluta lexpos. Se busca la ultima nueva linea antes de lexpos y se calcula la diferencia.
     # NO se usa como tal en la implementacion, pero venia recomendado en la investigacion que se realizo
     def find_column(self, lexpos):
-        """Calcula la columna 1-indexed usando la posicion absoluta lexpos."""
         last_newline = self.source_code.rfind("\n", 0, lexpos)
         return lexpos - last_newline
 
@@ -311,17 +321,13 @@ class Tokenizer:
     # El parser de PLY (yacc) espera que el lexer le pase tenga metodos input() y token().
     # input() recibe la cadena de entrada y token() devuelve el siguiente token o None cuando se acaba. 
 
-    """ Funcion que pasa la cadena al lexer interno y limpia el estado."""
     def input(self, data):
         self.clean_tokens()
         self.source_code = data
         self.lexer.lineno = 1
         self.lexer.input(data)
 
-    """
-    Devuelve el siguiente token al parser, descartando comentarios. El parser no necesita saber sobre comentarios, ya que no afectan
-    la estructura sintactica del programa.
-    """
+    # Devuelve el siguiente token al parser, descartando comentarios.
     def token(self):
         while True:
             tok = self.lexer.token()
@@ -331,15 +337,13 @@ class Tokenizer:
                 continue
             return tok
 
-    # PLY consulta lexer.lineno y lexer.lexpos directamente para rastrear
-    # posicion cuando se usa tracking=True.
+    # PLY consulta lexer.lineno y lexer.lexpos directamente para rastrear posicion cuando se usa tracking=True.
     def __getattr__(self, name):
         if name in ("lineno", "lexpos"):
             return getattr(self.__dict__["lexer"], name)
         raise AttributeError(name)
 
-# Funcion para acortar el valor de un token o error lexico si es muy largo, mostrando solo los primeros y ultimos caracteres con "(...)" en medio
-#  Hace mas legibles strings o comentarios largos
+# Funcion para acortar el valor de un token o error lexico si es muy largo, mostrando solo los primeros y ultimos caracteres con "(...)" en medio para mejor legibilidad
 def shorten_value(value, limit=40):
     # Se convierte el valor a string y se reemplazan las nuevas lineas por \n para que se muestren como texto en lugar de saltos de linea reales
     text = str(value).replace("\n", "\\n")
@@ -407,34 +411,23 @@ def test_tokenizer(fileName, patokenizer):
 
 
 
-# =========================================================================
-# ANALISIS SEMANTICO Y REPRESENTACION INTERMEDIA (CUADRUPLOS)
-# =========================================================================
+# SEGUNDA ENTREGA: ANALISIS SEMANTICO Y REPRESENTACION INTERMEDIA (CUADRUPLOS)
 #
-# Esta seccion extiende el lexer/parser de la entrega 1 con:
+# Las validaciones semánticas se hacen al mismo tiempo que se lee la estructura del código (parsing).
+# Añadidos de esta entrega:
 #   - directorio de funciones + tablas de variables por scope
 #   - cubo semantico para coincidencia de tipos
 #   - pila de operandos, pila de saltos, pila de scopes
 #   - generacion de cuadruplos (three address code) para: expresiones,
 #     asignaciones, if/else, while, do-while, for, switch, ternario,
 #     llamadas a funciones (ERA/PARAM/GOSUB), return, print, break/continue
-#
-# Las verificaciones semanticas se realizan DURANTE el parsing (syntax
-# directed translation), insertando acciones en los puntos neuralgicos.
-# Donde se necesita una accion a la mitad de una regla (por ejemplo para
-# emitir un gotof tras evaluar la condicion de un if), se usan marcadores
-# que derivan en cadena vacia (np_xxx : empty equivalente), tal como se
-# vio en clase.
 
 import ply.yacc as yacc
 
 
-# -------------------------------------------------------------------------
 # CUBO SEMANTICO
-# -------------------------------------------------------------------------
-# Estructura que, dados (tipo_izq, tipo_der, operador), devuelve el tipo del
-# resultado o 'error' si la operacion no es valida. Los tipos manejados son
-# int, float, string y bool. void solo aplica a funciones.
+# Estructura que considera los tipos, dados (tipo_izq, tipo_der, operador), devuelve el tipo del
+# resultado o 'error' si la operacion no es valida. Maneja int, float, string y bool
 class CuboSemantico:
     def __init__(self):
         self.cubo = {}
@@ -445,10 +438,11 @@ class CuboSemantico:
             self.cubo[("int", "float", op)] = "float"
             self.cubo[("float", "int", op)] = "float"
             self.cubo[("float", "float", op)] = "float"
+        
         # Concatenacion de strings con +
         self.cubo[("string", "string", "+")] = "string"
 
-        # Division / : siempre produce float entre numericos
+        # Division / : siempre produce float entre datos numericso
         for l in ("int", "float"):
             for r in ("int", "float"):
                 self.cubo[(l, r, "/")] = "float"
@@ -456,13 +450,13 @@ class CuboSemantico:
         # Modulo % : solo enteros
         self.cubo[("int", "int", "%")] = "int"
 
-        # Relacionales < > <= >= : numericos -> bool
+        # Relacionales < > <= >= : numericos a bool
         for op in ("<", ">", "<=", ">="):
             for l in ("int", "float"):
                 for r in ("int", "float"):
                     self.cubo[(l, r, op)] = "bool"
 
-        # Igualdad == != : numericos, strings y bools -> bool
+        # Igualdad == != : numericos, strings y bools a bool
         for op in ("==", "!="):
             for l in ("int", "float"):
                 for r in ("int", "float"):
@@ -470,7 +464,7 @@ class CuboSemantico:
             self.cubo[("string", "string", op)] = "bool"
             self.cubo[("bool", "bool", op)] = "bool"
 
-        # Logicos && || : bool con bool -> bool
+        # Logicos && || : bool con bool a bool
         for op in ("&&", "||"):
             self.cubo[("bool", "bool", op)] = "bool"
 
@@ -481,9 +475,8 @@ class CuboSemantico:
 
 # Compatibilidad para asignacion target = value.
 # Devuelve el tipo del target si es valido, o 'error' si no.
-# Regla: float acepta int (promocion), pero int NO acepta float (perdida de
-# precision). Los iguales son compatibles. bool no es asignable a variables
-# (no hay tipo bool declarable en el lenguaje).
+# Reglas aparte: float acepta int, pero int no float, los iguales son compatibles y bool no se puede asignar a variables.
+
 def compatible_asignacion(tipo_target, tipo_valor):
     if tipo_target == tipo_valor:
         return tipo_target
@@ -510,24 +503,16 @@ def unifica_tipos(t1, t2):
     return "error"
 
 
-# -------------------------------------------------------------------------
-# PARSER CON ACCIONES SEMANTICAS
-# -------------------------------------------------------------------------
-"""
-Se reutiliza la misma estructura de clase wrapper del parser de la entrega 1.
-Se conservan las reglas de la gramatica (docstrings) y sus comentarios; lo
-que se agrega es el cuerpo de cada funcion con la accion semantica
-correspondiente y los marcadores (np_xxx) que insertan acciones a la mitad
-de una regla.
-"""
+# PARSER (IMPLEMENTADO CON ACCIONES SEMANTICAS)
+# Se reutiliza la misma estructura de clase wrapper del parser de la entrega pasada.
+# Se agrega el cuerpo de cada funcion con la accion semantica correspondiente y los marcadores (np_xxx) que insertan acciones a la mitad de una regla. 
+# Pero se mantienen las reglas gramáticales de la entrega pasada
+
 class Parser:
     # Tokens importados del lexer
     tokens = Tokenizer.tokens
 
-    # =====================================================================
     # BODY PRINCIPAL DEL PROGRAMA
-    # =====================================================================
-
     # PROGRAM ::= keyword_program id ';' VARS_OPT FUNCS_LIST keyword_main BODY keyword_end
     # np_program: registra el scope global y emite el goto inicial hacia main.
     # np_main: rellena ese goto con el inicio del cuerpo de main.
@@ -535,8 +520,7 @@ class Parser:
         """program : KEYWORD_PROGRAM ID np_program SEMICOL vars_opt funcs_list np_main KEYWORD_MAIN body KEYWORD_END"""
         pass
 
-    # Marcador: tras leer el id del programa, se registra como scope global
-    # en el directorio de funciones y se emite goto pendiente hacia main.
+    # Marcador: tras leer el id del programa, se registra como scope global en el directorio de funciones y se emite goto pendiente hacia main.
     def p_np_program(self, p):
         """np_program : empty"""
         name = p[-1]  # el ID del programa esta inmediatamente a la izquierda
@@ -549,12 +533,11 @@ class Parser:
             "start_quad": None,
         }
         self.scope_stack = [name]
-        # gotomain inicial: salta a main, se rellena en np_main (slide "Quadruple para el main")
+        # gotomain inicial: salta a main, se rellena en np_main
         q = self.emit("gotomain", "-", "-", None)
         self.jump_stack.append(q)
 
-    # Marcador: tras las funciones, se rellena el goto inicial con el inicio
-    # de main y se asegura que el scope vuelva a ser global.
+    # Marcador: tras las funciones, se rellena el goto inicial con el inicio de main y se asegura que el scope vuelva a ser global.
     def p_np_main(self, p):
         """np_main : empty"""
         pending = self.jump_stack.pop()
@@ -593,10 +576,7 @@ class Parser:
         """stmt_list : empty"""
         pass
 
-    # =====================================================================
     # VARIABLES
-    # =====================================================================
-
     # VARS ::= keyword_var VAR_DECL_LIST
     def p_vars(self, p):
         """vars : KEYWORD_VAR var_decl_list"""
@@ -612,8 +592,7 @@ class Parser:
         pass
 
     # VAR_DECL ::= ID_LIST ':' TYPE ';'
-    # Punto neuralgico: ya conocemos el tipo, asi que volcamos la lista
-    # temporal de ids (id_list) a la tabla de variables del scope actual.
+    # En este caso ya conocemos el tipo, asi que volcamos la lista temporal de ids (id_list) a la tabla de variables del scope actual.
     def p_var_decl(self, p):
         """var_decl : id_list COLON type SEMICOL"""
         base, is_array, size = p[3]
@@ -1998,18 +1977,14 @@ def format_symbol_table(parser):
         if not tabla:
             lines.append("  (sin variables)")
             continue
-        # La columna 'scope' se coloca al final: al ser la ultima, aunque el
-        # nombre del scope sea largo no desplaza las columnas anteriores, y se
-        # conserva el formato de tabla visto en clase.
-        lines.append("  %-14s %-8s %-7s %-8s %-6s %s"
-                     % ("nombre", "tipo", "param", "arreglo", "size", "scope"))
+        lines.append("  %-12s %-8s %-12s %-7s %-8s %-6s"
+                     % ("nombre", "tipo", "scope", "param", "arreglo", "size"))
         for vname, v in tabla.items():
-            lines.append("  %-14s %-8s %-7s %-8s %-6s %s"
-                         % (vname, v["tipo"],
+            lines.append("  %-12s %-8s %-12s %-7s %-8s %-6s"
+                         % (vname, v["tipo"], v["scope"],
                             "si" if v["is_param"] else "no",
                             "si" if v["is_array"] else "no",
-                            v["size"] if v["size"] is not None else "-",
-                            v["scope"]))
+                            v["size"] if v["size"] is not None else "-"))
     return "\n".join(lines)
 
 
