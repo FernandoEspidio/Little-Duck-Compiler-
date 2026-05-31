@@ -660,7 +660,7 @@ class Parser:
 
     # FUNCS ::= keyword_void id '(' PARAMS_OPT ')' '[' VARS_OPT BODY ']' ';'
     #        |  TYPE id '(' PARAMS_OPT ')' '[' VARS_OPT BODY ']' ';'
-    
+
     # Marcadores:
     #   np_func_decl  : registra la funcion y abre su scope
     #   np_func_params: fija el numero de parametros
@@ -676,8 +676,8 @@ class Parser:
 
     def p_np_func_decl(self, p):
         """np_func_decl : empty"""
-        name = p[-1]      # el ID de la funcion
-        rt = p[-2]        # tipo de retorno: 'void' (token) o tupla type
+        name = p[-1] # el ID de la funcion
+        rt = p[-2] # tipo de retorno: 'void' (token) o tupla type
         return_type = rt[0] if isinstance(rt, tuple) else rt
         if name in self.func_dir:
             self.add_sem_error("funcion '%s' ya declarada" % name)
@@ -688,7 +688,7 @@ class Parser:
                 "n_params": 0,
                 "var_table": {},
                 "start_quad": None,
-                "has_return": False,   # se marca True al ver un return con valor
+                "has_return": False, # se marca True al ver un return con valor
             }
         self.scope_stack.append(name)
 
@@ -706,10 +706,6 @@ class Parser:
         """np_func_end : empty"""
         scope = self.current_scope()
         rec = self.func_dir.get(scope, {})
-        # Una funcion con tipo de retorno debe contener al menos un 'return
-        # <expresion>'. No se hace analisis de todos los caminos (eso requeriria
-        # analisis de flujo completo); se exige la presencia de un return con
-        # valor, lo cual atrapa funciones tipadas sin ningun return.
         if rec.get("return_type", "void") != "void" and not rec.get("has_return"):
             self.add_sem_error(
                 "la funcion '%s' es de tipo %s y debe tener un 'return' con valor"
@@ -747,10 +743,6 @@ class Parser:
         base, is_array, size = p[3]
         scope = self.current_scope()
         tabla = self.func_dir[scope]["var_table"]
-        # Los parametros de tipo arreglo no se soportan: pasar un arreglo a una
-        # funcion requiere semantica de referencia y un modelo de memoria que se
-        # aborda en la fase de generacion de codigo objeto / maquina virtual.
-        # Los arreglos si se soportan como variables locales y globales.
         if is_array:
             self.add_sem_error(
                 "los parametros de tipo arreglo no estan soportados ('%s' en '%s')"
@@ -772,9 +764,8 @@ class Parser:
             }
             self.func_dir[scope]["params"].append(base)
 
-    # =====================================================================
-    # STATEMENTS (cada alternativa en funcion separada)
-    # =====================================================================
+
+    # STATEMENTS
 
     # STATEMENT ::= ASSIGN | CONDITION | CYCLE | PRINT | F_CALL_STMT
     #            |  SWITCH_STMT | BREAK_STMT | CONTINUE_STMT | RETURN_STMT
@@ -828,8 +819,7 @@ class Parser:
     def p_break_stmt(self, p):
         """break_stmt : KEYWORD_BREAK SEMICOL"""
         if self.break_stack:
-            # Rompe la estructura mas cercana (ciclo o switch), que es el tope
-            # de la pila unificada.
+            # Rompe la estructura mas cercana (ciclo o switch), que es el tope de la pila
             kind, ctx = self.break_stack[-1]
             q = self.emit("goto", "-", "-", None)
             if kind == "loop":
@@ -884,9 +874,7 @@ class Parser:
         if scope in self.func_dir:
             self.func_dir[scope]["has_return"] = True
 
-    # =====================================================================
     # ASSIGN Y FUNCTION CALL
-    # =====================================================================
 
     # ASSIGN ::= ASSIGN_TARGET ASSIGN_OP EXPRESION ';'
     def p_assign(self, p):
@@ -894,8 +882,7 @@ class Parser:
         self.do_assign(p[1], p[2], p.lineno(4) if len(p) > 4 else 0)
 
     # ASSIGN_TARGET ::= id | id '[' EXPRESION ']'
-    # El target se devuelve como descriptor en p[0] (no se mete a la pila de
-    # operandos, para no confundir el orden con el RHS).
+    # El target se devuelve como descriptor en p[0].
     def p_assign_target_id(self, p):
         """assign_target : ID"""
         rec = self.lookup_var(p[1])
@@ -903,8 +890,7 @@ class Parser:
             self.add_sem_error("variable '%s' no declarada" % p[1], p.lineno(1))
             p[0] = {"name": p[1], "type": "error", "is_array": False}
         else:
-            # is_array=True aqui indica que se intenta asignar al arreglo
-            # completo (sin indice); do_assign lo rechaza.
+            # is_array=True aqui indica que se intenta asignar al arreglo completo (sin indice); do_assign lo rechaza.
             p[0] = {"name": p[1], "type": rec["tipo"], "is_array": rec["is_array"]}
 
     def p_assign_target_array(self, p):
@@ -978,8 +964,6 @@ class Parser:
             self.add_sem_error("funcion '%s' no declarada" % name)
             self.call_stack.append({"name": name, "idx": 0, "params": [], "valid": False})
         else:
-            # Las diapositivas (slides 12 y 14) no emiten un quad 'era'; la
-            # secuencia de una llamada es directamente param ... param gosub.
             self.call_stack.append({
                 "name": name,
                 "idx": 0,
@@ -1007,9 +991,7 @@ class Parser:
         """arg_list : expresion"""
         self.process_argument()
 
-    # =====================================================================
     # CONDITION Y CYCLE
-    # =====================================================================
 
     # CONDITION ::= keyword_if '(' EXPRESION ')' BODY ELSE_OPT ';'
     # np_gotof: tras la condicion, valida bool y emite gotof pendiente.
@@ -1162,9 +1144,9 @@ class Parser:
             self.add_sem_error(
                 "la condicion del for debe ser bool, no %s" % cond[1]
             )
-        gotof_q = self.emit("gotof", cond[0], "-", None)   # a END
-        goto_body_q = self.emit("goto", "-", "-", None)    # a BODY
-        update_start = self.quad_count + 1                 # inicio del update
+        gotof_q = self.emit("gotof", cond[0], "-", None) # a END
+        goto_body_q = self.emit("goto", "-", "-", None) # a BODY
+        update_start = self.quad_count + 1 # inicio del update
         self.jump_stack.append(gotof_q)
         self.jump_stack.append(goto_body_q)
         self.jump_stack.append(update_start)
@@ -1180,7 +1162,7 @@ class Parser:
         goto_body_q = self.jump_stack.pop()
         gotof_q = self.jump_stack.pop()
         cond_start = self.jump_stack.pop()
-        self.emit("goto", "-", "-", cond_start)          # fin del update -> condicion
+        self.emit("goto", "-", "-", cond_start) # fin del update -> condicion
         self.backpatch(goto_body_q, self.quad_count + 1) # body empieza aqui
         # se re-apilan los datos que faltan para cerrar
         self.jump_stack.append(gotof_q)
@@ -1190,8 +1172,8 @@ class Parser:
         """np_for_end : empty"""
         update_start = self.jump_stack.pop()
         gotof_q = self.jump_stack.pop()
-        self.emit("goto", "-", "-", update_start)        # fin del body -> update
-        self.backpatch(gotof_q, self.quad_count + 1)     # END
+        self.emit("goto", "-", "-", update_start) # fin del body -> update
+        self.backpatch(gotof_q, self.quad_count + 1) # END
         ctx = self.loop_stack.pop()
         self.break_stack.pop()
         for b in ctx["breaks"]:
@@ -1238,8 +1220,7 @@ class Parser:
 
     # SWITCH_STMT ::= keyword_switch '(' EXPRESION ')' '{' CASE_LIST DEFAULT_OPT '}' ';'
     # Cada case compara el valor del switch contra su constante; si coincide
-    # ejecuta su cuerpo y salta al final (auto-break). Si ningun case coincide,
-    # cae al default.
+    # ejecuta su cuerpo y salta al final (auto-break). Si ningun case coincide, cae al default.
     def p_switch_stmt(self, p):
         """switch_stmt : KEYWORD_SWITCH LPAREN expresion RPAREN np_switch_start LBRACE case_list default_opt RBRACE np_switch_end SEMICOL"""
         pass
@@ -1306,15 +1287,11 @@ class Parser:
         """default_opt : empty"""
         pass
 
-    # =====================================================================
     # PRINT
-    # =====================================================================
 
     # PRINT ::= keyword_print '(' PRINT_LIST ')' ';'
     # Cada statement print finaliza implicitamente con un quad extra que
-    # imprime un salto de linea, tal como se vio en clase (slide "Quadruples
-    # para print"). Un solo newline por sentencia print, sin importar cuantas
-    # expresiones contenga la lista.
+    # imprime un salto de linea, como se vio en clase. Un solo newline por sentencia print, sin importar cuantas expresiones contenga la lista.
     def p_print_stmt(self, p):
         """print_stmt : KEYWORD_PRINT LPAREN print_list RPAREN SEMICOL"""
         self.emit("print", "newline", "-", "-")
@@ -1333,14 +1310,9 @@ class Parser:
         self.check_not_array(val)
         self.emit("print", val[0], "-", "-")
 
-    # =====================================================================
     # EXPRESIONES (por niveles de precedencia, de menor a mayor)
-    # =====================================================================
-    # En cada produccion binaria se genera el cuadruplo en la reduccion, lo
-    # cual respeta la precedencia automaticamente (el parser LR reduce primero
-    # las capas mas internas). No se necesita una pila de operadores: basta la
-    # pila de operandos con pop derecho, pop izquierdo, consulta al cubo y push
-    # del temporal resultante.
+    # En cada produccion binaria se genera el cuadruplo en la reduccion, lo cual respeta la precedencia automaticamente  (el parser LR reduce primero las capas mas internas). 
+    # No se necesita una pila de operadores, basta la pila de operandos
 
     # EXPRESION ::= EXPRESION_TERNARY
     def p_expresion(self, p):
@@ -1533,21 +1505,17 @@ class Parser:
             self.add_sem_error("variable '%s' no declarada" % p[1], p.lineno(1))
             self.operand_stack.append(("error", "error"))
         elif rec["is_array"]:
-            # Se apila con tipo "arreglo" como marcador. Si despues viene un
-            # indice (factor_suffix [ ]), gen_array_access lo consume. Si en
-            # cambio llega a una operacion o asignacion sin indexar, esos puntos
-            # detectan el tipo "arreglo" y reportan el error con su linea.
             self.operand_stack.append((p[1], "arreglo"))
         else:
             self.operand_stack.append((p[1], rec["tipo"]))
 
     def p_factor_primary_cte(self, p):
         """factor_primary : cte"""
-        pass  # la constante ya fue apilada en la regla cte
+        pass # la constante ya fue apilada en la regla cte
 
     def p_factor_primary_call(self, p):
         """factor_primary : f_call_expr"""
-        pass  # el valor de retorno ya fue apilado en end_call
+        pass # el valor de retorno ya fue apilado en end_call
 
     # CTE ::= const_int | const_float | const_str
     # Las constantes se apilan directamente en la pila de operandos.
@@ -1563,16 +1531,12 @@ class Parser:
         """cte : CONST_STR"""
         self.operand_stack.append((p[1], "string"))
 
-    # =====================================================================
     # PRODUCCION EPSILON (vacio)
-    # =====================================================================
     def p_empty(self, p):
         """empty :"""
         pass
 
-    # =====================================================================
-    # MANEJO DE ERRORES SINTACTICOS (igual que la entrega 1)
-    # =====================================================================
+    # MANEJO DE ERRORES SINTACTICOS
     def p_statement_error(self, p):
         """statement : error SEMICOL"""
         self.parser.errok()
@@ -1592,9 +1556,7 @@ class Parser:
             "SYNTAX_ERROR", p.value, p.lineno, p.lexpos,
             "token inesperado de tipo %s" % p.type,
         )
-        # Tope de seguridad: si se acumulan demasiados errores de sintaxis
-        # (sintoma de que la recuperacion no avanza), se aborta el parseo en
-        # vez de quedar atrapado consumiendo memoria.
+        # Si se acumulan demasiados errores de sintaxis , se aborta el parseo en vez de quedar atrapado consumiendo memoria.
         if len(self.errors) > 100:
             raise SyntaxError("demasiados errores de sintaxis; parseo abortado")
         # Descartar el token infractor para GARANTIZAR avance. Sin esto, en
@@ -1603,21 +1565,19 @@ class Parser:
         # errok() reactiva el parser para que continue con el siguiente token.
         self.parser.errok()
 
-    # =====================================================================
     # HELPERS DE GENERACION DE CODIGO Y SEMANTICA
-    # =====================================================================
 
     # Devuelve el scope actual (top de la pila de scopes)
     def current_scope(self):
         return self.scope_stack[-1] if self.scope_stack else self.global_scope
 
-    # Genera un nuevo temporal t1, t2, ... (contados desde 1)
+    # Genera un nuevo temporal t1, t2, etc (contados desde 1)
     def new_temp(self):
         self.temp_count += 1
         return "t" + str(self.temp_count)
 
     # Agrega un cuadruplo a la lista. Los cuadruplos se numeran desde 1.
-    # res_type es el tipo del resultado (columna extra solicitada).
+    # res_type es el tipo del resultado.
     def emit(self, op, argl, argr, res, res_type="-"):
         self.quad_count += 1
         self.quads.append({
@@ -1657,7 +1617,7 @@ class Parser:
 
     # Verifica que un operando no sea un arreglo sin indexar. Devuelve True si
     # esta bien, o False (y reporta el error) si es un arreglo usado como
-    # escalar. Centraliza el chequeo para print, return y argumentos.
+    # escalar. Checa tanto para print, return y argumentos.
     def check_not_array(self, operand, lineno=0):
         if operand[1] == "arreglo":
             self.add_sem_error(
@@ -1819,7 +1779,6 @@ class Parser:
                     )
                 self.emit("param", arg[0], "-", "-")
             else:
-                # mas argumentos de los esperados; se reporta al cerrar
                 self.emit("param", arg[0], "-", "-")
         call["idx"] += 1
 
@@ -1852,10 +1811,7 @@ class Parser:
                 self.emit("=", name + "_ret", "-", temp, rt)
                 self.operand_stack.append((temp, rt))
 
-    # =====================================================================
-    # FUNCIONES AUXILIARES (igual que la entrega 1)
-    # =====================================================================
-
+    # FUNCIONES AUXILIARES 
     # Reinicia el estado del parser y de las estructuras semanticas
     def clean(self):
         self.errors = []
@@ -1868,9 +1824,6 @@ class Parser:
         self.call_stack = []
         self.loop_stack = []
         self.switch_stack = []
-        # Pila unificada de estructuras "rompibles" (loops y switches) en orden
-        # de apertura. break consulta el tope para romper la estructura mas
-        # cercana, sea un ciclo o un switch.
         self.break_stack = []
         self.tern_stack = []
         self.quads = []
@@ -1893,9 +1846,7 @@ class Parser:
             "message": message,
         })
 
-    # =====================================================================
     # CONSTRUCTOR
-    # =====================================================================
     def __init__(self, tokenizer=None):
         self.tokenizer = tokenizer if tokenizer else Tokenizer(keep_comments=False)
         self.source_code = ""
@@ -1903,14 +1854,12 @@ class Parser:
         self.clean()
         self.parser = yacc.yacc(
             module=self,
-            debug=False,        # False: no genera parser.out al ejecutar (ponlo en True si quieres la tabla LR para el reporte)
+            debug=False, # False: no genera parser.out al ejecutar
             write_tables=False,
             errorlog=yacc.NullLogger(),
         )
 
-    # =====================================================================
     # METODO PRINCIPAL DE PARSEO
-    # =====================================================================
     def parse(self, input_string):
         self.clean()
         self.source_code = input_string
@@ -1923,9 +1872,7 @@ class Parser:
                 and len(self.tokenizer.errors) == 0)
 
 
-# =========================================================================
 # IMPRESION DE RESULTADOS
-# =========================================================================
 
 # Imprime los errores lexicos, sintacticos y semanticos
 def print_all_errors(parser):
@@ -1945,8 +1892,7 @@ def print_all_errors(parser):
             print("  %s%s" % (loc, err["message"]))
 
 
-# Construye las lineas de la representacion intermedia (cuadruplos) con la
-# columna extra de tipo de resultado. Numeros desde 1.
+# Construye las lineas de la representacion intermedia (cuadruplos) con la columna extra de tipo de resultado. Numeros desde 1.
 def format_quads(parser):
     lines = []
     lines.append("Representacion intermedia (cuadruplos):")
@@ -1962,8 +1908,7 @@ def format_quads(parser):
     return "\n".join(lines)
 
 
-# Construye las lineas de la tabla de simbolos (directorio de funciones +
-# tablas de variables por scope).
+# Construye las lineas de la tabla de simbolos (directorio de funciones + tablas de variables por scope).
 def format_symbol_table(parser):
     lines = []
     lines.append("Tabla de simbolos:")
@@ -1987,11 +1932,7 @@ def format_symbol_table(parser):
     return "\n".join(lines)
 
 
-# =========================================================================
 # PUNTO DE ENTRADA
-# =========================================================================
-# Por requerimiento de la actividad, el caso de prueba se abre estrictamente
-# con la siguiente linea, sin rutas, validaciones ni busquedas adicionales.
 
 input = open("prueba.txt").read()
 
@@ -2011,7 +1952,7 @@ else:
     print(ir_text)
     print()
     print(format_symbol_table(parser))
-    # Se escribe la representacion intermedia en prueba-ir.txt
+    # Archivo representación intermedia
     with open("prueba-ir.txt", "w") as f:
         f.write(ir_text)
         f.write("\n\n")
