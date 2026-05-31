@@ -1058,8 +1058,15 @@ class Parser:
     # El cuerpo se ejecuta y al final se evalua la condicion: si es verdadera
     # se regresa al inicio (gotot).
     def p_do_while(self, p):
-        """do_while : KEYWORD_DO np_do_start body KEYWORD_WHILE LPAREN expresion RPAREN np_do_end SEMICOL"""
+        """do_while : KEYWORD_DO np_do_start body KEYWORD_WHILE LPAREN np_do_cond expresion RPAREN np_do_end SEMICOL"""
         pass
+
+    # Marca donde inicia la evaluacion de la condicion del do-while. Es el
+    # destino correcto de un 'continue' (debe saltar a evaluar la condicion,
+    # no saltarse su evaluacion).
+    def p_np_do_cond(self, p):
+        """np_do_cond : empty"""
+        self.loop_stack[-1]["continue_target"] = self.quad_count + 1
 
     def p_np_do_start(self, p):
         """np_do_start : empty"""
@@ -1481,7 +1488,7 @@ class Parser:
 
     def p_factor_suffix_index(self, p):
         """factor_suffix : factor_suffix LBRACKET expresion RBRACKET"""
-        self.gen_array_access()
+        self.gen_array_access(p.lineno(2))
 
     def p_factor_suffix_pass(self, p):
         """factor_suffix : factor"""
@@ -1677,17 +1684,25 @@ class Parser:
             self.operand_stack.append((temp, res))
 
     # Acceso a un arreglo dentro de una expresion: a[i]
-    def gen_array_access(self):
+    def gen_array_access(self, lineno=0):
         idx = self.pop_operand()
         base = self.pop_operand()
-        rec = self.lookup_var(base[0])
-        if rec is None:
+        if base[1] == "error":
             self.operand_stack.append(("error", "error"))
             return
-        if not rec["is_array"]:
-            self.add_sem_error("'%s' no es un arreglo" % base[0])
+        rec = self.lookup_var(base[0])
+        
+        if rec is None or not rec["is_array"]:
+            self.add_sem_error(
+                "no se puede indexar '%s': no es un arreglo" % str(base[0]),
+                lineno,
+            )
+            self.operand_stack.append(("error", "error"))
+            return
         if idx[1] != "int":
-            self.add_sem_error("el indice de '%s' debe ser int" % base[0])
+            self.add_sem_error(
+                "el indice de '%s' debe ser int" % base[0], lineno
+            )
         if rec["size"] is not None:
             self.emit("ver", idx[0], 0, rec["size"] - 1)
         temp = self.new_temp()
@@ -1896,15 +1911,29 @@ def print_all_errors(parser):
 def format_quads(parser):
     lines = []
     lines.append("Representacion intermedia (cuadruplos):")
-    lines.append("%-5s %-8s %-12s %-12s %-12s %-8s"
-                 % ("num", "op", "argL", "argR", "res", "tipo"))
+    # Ancho fijo de cada columna de argumento. Los valores mas largos
+    # (p. ej. cadenas de texto) se truncan para que las columnas no se
+    # descuadren.
+    col = 18
+
+    # Acorta un valor para que quepa en el ancho de columna, agregando
+    # "..." al final si se trunca.
+    def fit(value):
+        if value is None:
+            return "-"
+        text = str(value).replace("\n", "\\n")
+        if len(text) <= col:
+            return text
+        return text[: col - 3] + "..."
+
+    header = "%-5s %-8s %-*s %-*s %-*s %-8s" % (
+        "num", "op", col, "argL", col, "argR", col, "res", "tipo")
+    lines.append(header)
     for q in parser.quads:
-        argl = "-" if q["argl"] is None else str(q["argl"])
-        argr = "-" if q["argr"] is None else str(q["argr"])
-        res = "-" if q["res"] is None else str(q["res"])
         rtype = q["res_type"] if q["res_type"] else "-"
-        lines.append("%-5d %-8s %-12s %-12s %-12s %-8s"
-                     % (q["num"], q["op"], argl, argr, res, rtype))
+        lines.append("%-5d %-8s %-*s %-*s %-*s %-8s"
+                     % (q["num"], q["op"], col, fit(q["argl"]),
+                        col, fit(q["argr"]), col, fit(q["res"]), rtype))
     return "\n".join(lines)
 
 
@@ -1921,14 +1950,15 @@ def format_symbol_table(parser):
         if not tabla:
             lines.append("  (sin variables)")
             continue
-        lines.append("  %-12s %-8s %-12s %-7s %-8s %-6s"
-                     % ("nombre", "tipo", "scope", "param", "arreglo", "size"))
+        lines.append("  %-14s %-8s %-7s %-8s %-6s %s"
+                    % ("nombre", "tipo", "param", "arreglo", "size", "scope"))
         for vname, v in tabla.items():
-            lines.append("  %-12s %-8s %-12s %-7s %-8s %-6s"
-                         % (vname, v["tipo"], v["scope"],
+            lines.append("  %-14s %-8s %-7s %-8s %-6s %s"
+                        % (vname, v["tipo"],
                             "si" if v["is_param"] else "no",
                             "si" if v["is_array"] else "no",
-                            v["size"] if v["size"] is not None else "-"))
+                            v["size"] if v["size"] is not None else "-",
+                            v["scope"]))
     return "\n".join(lines)
 
 
