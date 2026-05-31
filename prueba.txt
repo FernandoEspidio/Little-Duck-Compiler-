@@ -1,70 +1,135 @@
-program CasoValidoCompleto;
-var
-a, b, c, i : int;
-promedio : float;
-mensaje : string;
-datos : int[5];
+program opcionales_ciclos_funciones_precedencia;
 
-int suma(x : int, y : int) [
 var
-resultado : int;
-{
-resultado = x + y;
-return resultado;
-}
+  i, j, total : int;
+  a, b, c, r : int;
+  promedio : float;
+
+# Funcion void sin parametros
+void separador(x: int) [
+  {
+    print("----------------");
+    return;
+  }
 ];
 
-void mostrar(valor : int, texto : string) [
-{
-print(texto, valor);
-return;
-}
-];
+"""
+Funcion que prueba ciclos anidados.
+Tambien usa continue y break dentro de un while.
+"""
+void procesar() [
+  {
+    i = 0;
+    i = -1;
+    total = 0;
 
-main {
-a = 10;
-b = 20;
-c = suma(a, b);
-promedio = 3.5;
-mensaje = "resultado";
-datos[0] = c;
-print(mensaje, c, promedio);
+    for (; i < 5; )
+    {
+      j = 0;
 
-if ((a < b) && (c >= 30)) {
-    mostrar(c, "c correcto");
-} else {
-    print("condicion falsa");
-};
+      while (j < 4)
+      {
+        if (j == 2)
+        {
+          j++;
+          continue;
+        };
 
-while (a < 13) {
-    a += 1;
-    print("while", a);
-};
+        total += i + j;
 
-do {
-    b -= 1;
-    print("do while", b);
-} while (b > 18);
+        if (total > 20)
+        {
+          break;
+        };
 
-for (i = 0; i < 5; i++) {
-    datos[i] = i * 2;
-    if (datos[i] % 2 == 0) {
-        print("par", datos[i]);
-    } else {
-        print("impar", datos[i]);
+        j++;
+      };
+
+      i++;
     };
-};
 
-switch (i) {
-case 5:
-    print("termino for");
-    break;
-default:
-    print("valor diferente");
-};
+    print("Total:", total);
+  }
+];
 
-c = (a < b) ? a + b : c - 1;
+"""
+Funcion simple con retorno entero.
+Se usa despues como parte de expresiones mas grandes.
+"""
+int doble(x: int) [
+  {
+    return x * 2;
+  }
+];
 
-print("final", c);
+int suma(x: int, y: int) [
+  {
+    return x + y;
+  }
+];
+
+float calcularPromedio(x: int, y: int, z: int) [
+  var sumatoria : int;
+  {
+    sumatoria = x + y + z;
+    return sumatoria / 3;
+  }
+];
+
+main
+{
+  separador();
+  procesar();
+  separador();
+
+  # Switch sin default
+  switch (total % 3)
+  {
+    case 0:
+      print("residuo cero");
+    case 1:
+      print("residuo uno");
+    case 2:
+      print("residuo dos");
+  };
+
+  # Do-while sencillo
+  do
+  {
+    total--;
+  }
+  while (total > 10);
+
+  print("Total ajustado:", total);
+
+  # Asignaciones base
+  a = 3;
+  b = 4;
+  c = 5;
+
+  # Llamadas anidadas y expresiones como argumentos
+  r = suma(doble(a), suma(b + 1, c * 2));
+  promedio = calcularPromedio(a, b, r);
+
+  print("Resultado:", r);
+  print("Promedio:", promedio);
+
+  """
+  Prueba de precedencia:
+  primero se evalua multiplicacion/modulo,
+  despues suma/resta, despues relacionales y logicos.
+  """
+  if ((a + b * c > 20) && !(r == 0))
+  {
+    print("precedencia correcta");
+  }
+  else
+  {
+    print("precedencia incorrecta");
+  };
+
+  # Operador ternario dentro de asignacion
+  r = r > 20 ? r : 20;
+  print("Valor final:", r);
 }
 end
