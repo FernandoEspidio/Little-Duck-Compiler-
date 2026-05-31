@@ -656,12 +656,11 @@ class Parser:
             size = 1  # valor de recuperacion para no romper el resto del analisis
         p[0] = (base, True, size)
 
-    # =====================================================================
     # FUNCIONES
-    # =====================================================================
 
     # FUNCS ::= keyword_void id '(' PARAMS_OPT ')' '[' VARS_OPT BODY ']' ';'
     #        |  TYPE id '(' PARAMS_OPT ')' '[' VARS_OPT BODY ']' ';'
+    
     # Marcadores:
     #   np_func_decl  : registra la funcion y abre su scope
     #   np_func_params: fija el numero de parametros
