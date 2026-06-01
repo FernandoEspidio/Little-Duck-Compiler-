@@ -995,9 +995,9 @@ class Parser:
 
     # CONDITION ::= keyword_if '(' EXPRESION ')' BODY ELSE_OPT ';'
     # np_gotof: tras la condicion, valida bool y emite gotof pendiente.
-    # else_part maneja el relleno del gotof (con o sin else).
+    # else_opt maneja el relleno del gotof (con o sin else).
     def p_condition(self, p):
-        """condition : KEYWORD_IF LPAREN expresion RPAREN np_gotof body else_part SEMICOL"""
+        """condition : KEYWORD_IF LPAREN expresion RPAREN np_gotof body else_opt SEMICOL"""
         pass
 
     # Marcador punto 1: la expresion de control debe ser bool.
@@ -1011,13 +1011,13 @@ class Parser:
         q = self.emit("gotof", cond[0], "-", None)
         self.jump_stack.append(q)
 
-    # ELSE_PART: sin else (np_no_else) o con else (np_goto ... np_end_else)
-    def p_else_part_none(self, p):
-        """else_part : np_no_else"""
+    # ELSE_OPT: sin else (np_no_else) o con else (np_goto ... np_end_else)
+    def p_else_opt_empty(self, p):
+        """else_opt : np_no_else"""
         pass
 
-    def p_else_part_else(self, p):
-        """else_part : np_goto KEYWORD_ELSE body np_end_else"""
+    def p_else_opt_else(self, p):
+        """else_opt : np_goto KEYWORD_ELSE body np_end_else"""
         pass
 
     # Marcador punto 2 (sin else): rellena el gotof al siguiente cuadruplo.
@@ -1379,6 +1379,8 @@ class Parser:
         self.operand_stack.append((t["res"], rtype))
 
     # NIVEL 2: OR LOGICO
+    # EXPRESION_LOGIC_OR ::= EXPRESION_LOGIC_OR '||' EXPRESION_LOGIC_AND
+    #                 | EXPRESION_LOGIC_AND
     def p_expresion_logic_or_op(self, p):
         """expresion_logic_or : expresion_logic_or OP_LOGICAL_OR expresion_logic_and"""
         self.gen_binary("||", p.lineno(2))
@@ -1388,6 +1390,8 @@ class Parser:
         pass
 
     # NIVEL 3: AND LOGICO
+    # EXPRESION_LOGIC_AND ::= EXPRESION_LOGIC_AND '&&' EXPRESION_EQUALITY
+    #                  | EXPRESION_EQUALITY
     def p_expresion_logic_and_op(self, p):
         """expresion_logic_and : expresion_logic_and OP_LOGICAL_AND expresion_equality"""
         self.gen_binary("&&", p.lineno(2))
@@ -1397,6 +1401,9 @@ class Parser:
         pass
 
     # NIVEL 4: IGUALDAD
+    # EXPRESION_EQUALITY ::= EXPRESION_EQUALITY '==' EXPRESION_RELATIONAL
+    #                 | EXPRESION_EQUALITY '!=' EXPRESION_RELATIONAL
+    #                | EXPRESION_RELATIONAL
     def p_expresion_equality_eq(self, p):
         """expresion_equality : expresion_equality OP_EQUAL expresion_relational"""
         self.gen_binary("==", p.lineno(2))
@@ -1410,6 +1417,11 @@ class Parser:
         pass
 
     # NIVEL 5: RELACIONALES
+    # EXPRESION_RELATIONAL ::= EXPRESION_RELATIONAL '<' EXP
+    #                   | EXPRESION_RELATIONAL '>' EXP
+    #                   | EXPRESION_RELATIONAL '<=' EXP
+    #                   | EXPRESION_RELATIONAL '>=' EXP
+    #                   | EXP
     def p_expresion_relational_lt(self, p):
         """expresion_relational : expresion_relational OP_LESS_THAN exp"""
         self.gen_binary("<", p.lineno(2))
@@ -1431,6 +1443,7 @@ class Parser:
         pass
 
     # NIVEL 6: SUMA/RESTA
+    # EXP ::= EXP '+' TERMINO | EXP '-' TERMINO | TERMINO
     def p_exp_plus(self, p):
         """exp : exp OP_PLUS termino"""
         self.gen_binary("+", p.lineno(2))
@@ -1444,6 +1457,10 @@ class Parser:
         pass
 
     # NIVEL 7: MULT/DIV/MOD
+    # TERMINO ::= TERMINO '*' FACTOR_PREFIX
+    #      | TERMINO '/' FACTOR_PREFIX
+    #      | TERMINO '%' FACTOR_PREFIX
+    #      | FACTOR_PREFIX
     def p_termino_mult(self, p):
         """termino : termino OP_MULT factor_prefix"""
         self.gen_binary("*", p.lineno(2))
@@ -1461,6 +1478,10 @@ class Parser:
         pass
 
     # NIVEL 8: PREFIJOS (unarios)
+    # FACTOR_PREFIX ::= '!' FACTOR_PREFIX
+    #            | '-' FACTOR_PREFIX
+    #            | '+' FACTOR_PREFIX
+    #            | FACTOR_SUFFIX
     def p_factor_prefix_not(self, p):
         """factor_prefix : OP_LOGICAL_NOT factor_prefix"""
         self.gen_unary("!")
@@ -1478,6 +1499,10 @@ class Parser:
         pass
 
     # NIVEL 9: SUFIJOS
+    # FACTOR_SUFFIX ::= FACTOR_SUFFIX '++'
+    #            | FACTOR_SUFFIX '--'
+    #            | FACTOR_SUFFIX '[' EXPRESION ']'
+    #            | FACTOR
     def p_factor_suffix_inc(self, p):
         """factor_suffix : factor_suffix OP_INCREMENT"""
         self.gen_suffix_inc_dec("+")
@@ -1495,6 +1520,8 @@ class Parser:
         pass
 
     # NIVEL 10: FACTOR (parentesis o primario)
+    # FACTOR ::= '(' EXPRESION ')'
+    #      | FACTOR_PRIMARY
     def p_factor_paren(self, p):
         """factor : LPAREN expresion RPAREN"""
         pass
@@ -1983,7 +2010,7 @@ else:
     print()
     print(format_symbol_table(parser))
     # Archivo representación intermedia
-    with open("prueba-ir.txt", "w") as f:
+    with open("repIntermedia.txt", "w") as f:
         f.write(ir_text)
         f.write("\n\n")
         f.write(format_symbol_table(parser))
