@@ -4,6 +4,7 @@ parser.out.bak
 parsetab.py.bak
 prueba-ir.txt
 repIntermedia.txt
+*.txt
 
 __pycache__/
 *.py[cod]

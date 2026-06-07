@@ -17,7 +17,7 @@ import os
 import sys
 from contextlib import redirect_stdout
 
-from lexer import Tokenizer, read_source, printTokens
+from Entrega1.lexer import Tokenizer, read_source, printTokens
 from parser import Parser, print_errors
 
 

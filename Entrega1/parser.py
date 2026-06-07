@@ -21,7 +21,7 @@ from contextlib import redirect_stdout
 
 import ply.yacc as yacc
 
-from lexer import Tokenizer, read_source, shorten_value
+from Entrega1.lexer import Tokenizer, read_source, shorten_value
 
 
 """
