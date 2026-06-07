@@ -518,7 +518,9 @@ class Parser:
     # np_main: rellena ese goto con el inicio del cuerpo de main.
     def p_program(self, p):
         """program : KEYWORD_PROGRAM ID np_program SEMICOL vars_opt funcs_list np_main KEYWORD_MAIN body KEYWORD_END"""
-        pass
+        # Al terminar el programa (tras el cuerpo de main) se emite un quad de
+        # fin de ejecucion para que la maquina virtual sepa donde detenerse.
+        self.emit("end", "-", "-", "-")
 
     # Marcador: tras leer el id del programa, se registra como scope global en el directorio de funciones y se emite goto pendiente hacia main.
     def p_np_program(self, p):
@@ -604,6 +606,15 @@ class Parser:
                     "variable '%s' ya declarada en el scope '%s'" % (name, scope),
                     p.lineno(2),
                 )
+            elif scope == self.global_scope and name in self.func_dir:
+                # En el scope global, una variable no puede llamarse igual que
+                # una funcion ya declarada ni que el propio programa (los
+                # nombres globales son unicos).
+                quien = "el programa" if name == self.global_scope else "una funcion"
+                self.add_sem_error(
+                    "el nombre '%s' ya esta usado por %s" % (name, quien),
+                    p.lineno(2),
+                )
             else:
                 tabla[name] = {
                     "tipo": base,
@@ -679,9 +690,17 @@ class Parser:
         name = p[-1] # el ID de la funcion
         rt = p[-2] # tipo de retorno: 'void' (token) o tupla type
         return_type = rt[0] if isinstance(rt, tuple) else rt
+        gtabla = self.func_dir.get(self.global_scope, {}).get("var_table", {})
         if name in self.func_dir:
             self.add_sem_error("funcion '%s' ya declarada" % name)
-        else:
+        elif name in gtabla:
+            self.add_sem_error(
+                "el nombre '%s' ya esta usado por una variable global" % name
+            )
+        # Se registra (o re-registra) el scope de la funcion aunque haya
+        # colision, para que su cuerpo se siga analizando sin romper las
+        # busquedas posteriores en el directorio de funciones.
+        if name not in self.func_dir:
             self.func_dir[name] = {
                 "return_type": return_type,
                 "params": [],
@@ -964,6 +983,10 @@ class Parser:
             self.add_sem_error("funcion '%s' no declarada" % name)
             self.call_stack.append({"name": name, "idx": 0, "params": [], "valid": False})
         else:
+            # Quad de encabezado de la llamada: indica a la maquina virtual a
+            # cual funcion pertenecen los siguientes 'param'. Se emite antes de
+            # los parametros y guarda el nombre de la funcion a invocar.
+            self.emit("sub", name, "-", "-")
             self.call_stack.append({
                 "name": name,
                 "idx": 0,
@@ -1649,6 +1672,13 @@ class Parser:
     def add_sem_error(self, message, lineno=0):
         self.sem_errors.append({"message": message, "lineno": lineno})
 
+    # Indica si un nombre ya esta tomado por una funcion o por el programa.
+    # Sirve para evitar colisiones entre los nombres de funciones y los de
+    # variables/parametros, que viven en estructuras separadas (func_dir vs.
+    # las tablas de variables) y de otro modo no se compararian entre si.
+    def name_is_function(self, name):
+        return name in self.func_dir
+
     # Verifica que un operando no sea un arreglo sin indexar. Devuelve True si
     # esta bien, o False (y reporta el error) si es un arreglo usado como
     # escalar. Checa tanto para print, return y argumentos.
@@ -2010,7 +2040,7 @@ else:
     print()
     print(format_symbol_table(parser))
     # Archivo representación intermedia
-    with open("repIntermedia.txt", "w") as f:
+    with open("prueba-ir.txt", "w") as f:
         f.write(ir_text)
         f.write("\n\n")
         f.write(format_symbol_table(parser))
