@@ -39,6 +39,7 @@ REGION_BASE = {
     "cte_int": 17000, "cte_float": 18000, "cte_str": 19000,
 }
 RET_REG = 5000          # registro unico de retorno
+REGION_SPAN = 1000      # tamano del segmento de cada region
 RECURSION_LIMIT = 5000  # profundidad maxima de la pila de llamadas
 
 
@@ -189,26 +190,38 @@ class VirtualMachine:
         return None
 
     def _check_reserved(self, addr, region):
-        # Verifica que la direccion este dentro de la memoria reservada
+        # Una direccion es valida si cae dentro del SEGMENTO de una region que
+        # esta reservada en el contexto actual. Se reserva el segmento de la
+        # region (no un conteo exacto), de modo que la VM tolera las
+        # convenciones de clase y solo marca como error: regiones no
+        # declaradas, memoria local/temporal sin un frame activo, o
+        # direcciones fuera de todo segmento.
         offset = addr - REGION_BASE[region]
+        if not (0 <= offset < REGION_SPAN):
+            self._fail("direccion fuera del segmento de su region (%d)" % addr)
+
         if region.startswith("cte_"):
             if addr not in self.const_mem:
                 self._fail("acceso a constante no reservada (dir %d)" % addr)
             return
+
         if region.startswith("global_"):
-            limit = self.global_counts.get(region, 0)
-            if not (0 <= offset < limit):
-                self._fail("acceso a memoria global no reservada (dir %d)" % addr)
+            if self.global_counts.get(region, 0) <= 0:
+                self._fail("acceso a region global no reservada: %s (dir %d)"
+                           % (region, addr))
             return
-        # local_* / temp_* : dependen del contexto actual
+
+        # local_* / temp_* : dependen del contexto (frame activo o main)
         if self.call_stack:
             counts = self.func_dir[self.call_stack[-1].func_name]["counts"]
-            limit = counts.get(region, 0)
+            if counts.get(region, 0) <= 0:
+                self._fail("acceso a memoria no reservada en la funcion: %s (dir %d)"
+                           % (region, addr))
         else:
-            # en el main: solo se reservan temporales (en memoria global)
-            limit = self.global_counts.get(region, 0) if region.startswith("temp_") else 0
-        if not (0 <= offset < limit):
-            self._fail("acceso a memoria no reservada (dir %d)" % addr)
+            # en el main no hay locales; solo temporales declaradas en memo
+            if not region.startswith("temp_") or self.global_counts.get(region, 0) <= 0:
+                self._fail("acceso a memoria no reservada fuera de una funcion: "
+                           "%s (dir %d)" % (region, addr))
 
     def _default_for(self, region):
         # Valor por defecto de una celda reservada pero aun no escrita,

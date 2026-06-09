@@ -6,6 +6,8 @@ prueba-ir.txt
 repIntermedia.txt
 *.txt
 
+prueba.py
+
 __pycache__/
 *.py[cod]
 *$py.class
