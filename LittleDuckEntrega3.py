@@ -861,6 +861,12 @@ class Parser:
     def p_return_stmt_void(self, p):
         """return_stmt : KEYWORD_RETURN SEMICOL"""
         scope = self.current_scope()
+        if scope == self.global_scope:
+            self.add_sem_error(
+                "no se puede usar 'return' en el programa principal; "
+                "'return' solo es valido dentro de una funcion", p.lineno(1)
+            )
+            return
         rt = self.func_dir.get(scope, {}).get("return_type", "void")
         if rt != "void":
             self.add_sem_error(
@@ -873,6 +879,12 @@ class Parser:
         """return_stmt : KEYWORD_RETURN expresion SEMICOL"""
         val = self.pop_operand()
         scope = self.current_scope()
+        if scope == self.global_scope:
+            self.add_sem_error(
+                "no se puede usar 'return' en el programa principal; "
+                "'return' solo es valido dentro de una funcion", p.lineno(1)
+            )
+            return
         rt = self.func_dir.get(scope, {}).get("return_type", "void")
         if rt == "void":
             self.add_sem_error(
@@ -1113,8 +1125,9 @@ class Parser:
         for b in ctx["breaks"]:
             self.backpatch(b, self.quad_count + 1)
         for c in ctx["continues"]:
-            # continue en do-while salta a la evaluacion de la condicion
-            self.backpatch(c, self.quad_count)
+            # continue en do-while salta a la RE-EVALUACION de la condicion
+            # (no al gotot, que leeria un valor de condicion ya calculado)
+            self.backpatch(c, ctx["continue_target"])
 
     # WHILE_LOOP ::= keyword_while '(' EXPRESION ')' BODY ';'
     def p_while_loop(self, p):
@@ -1258,7 +1271,7 @@ class Parser:
     def p_np_switch_start(self, p):
         """np_switch_start : empty"""
         val = self.pop_operand()
-        ctx = {"val": val, "end_jumps": []}
+        ctx = {"val": val, "end_jumps": [], "seen": []}
         self.switch_stack.append(ctx)
         self.break_stack.append(("switch", ctx))
 
@@ -1296,6 +1309,11 @@ class Parser:
                 "el tipo del case (%s) no coincide con el del switch (%s)"
                 % (cval[1], sw["val"][1])
             )
+        # un mismo valor de case no puede repetirse (los demas serian inalcanzables)
+        if cval[0] in sw["seen"]:
+            self.add_sem_error("valor de case duplicado: %s" % cval[0])
+        else:
+            sw["seen"].append(cval[0])
         temp = self.new_temp()
         self.emit("==", sw["val"][0], cval[0], temp, "bool")
         gq = self.emit("gotof", temp, "-", None)
@@ -2046,10 +2064,11 @@ import re
 REGION_BASE = {
     "global_int": 1000, "global_float": 2000, "global_str": 3000, "global_void": 4000,
     "local_int": 7000, "local_float": 8000, "local_str": 9000,
-    "temp_int": 12000, "temp_float": 13000, "temp_bool": 14000,
+    "temp_int": 12000, "temp_float": 13000, "temp_bool": 14000, "temp_str": 15000,
     "cte_int": 17000, "cte_float": 18000, "cte_str": 19000,
 }
 RET_REG = 5000          # registro unico de retorno (memoria global)
+REGION_SPAN = 1000      # cada region tiene 1000 direcciones antes de la siguiente
 MAIN_OWNER = "__main__"  # dueno ficticio de los temporales del main
 
 _TEMP_RE = re.compile(r"^t\d+$")
@@ -2059,8 +2078,14 @@ _ARRAY_TARGET_RE = re.compile(r"^(\w+)\[(.+)\]$")
 
 
 def _temp_region(tipo):
-    # bool -> temp_bool, int -> temp_int, float -> temp_float
-    return "temp_bool" if tipo == "bool" else ("temp_float" if tipo == "float" else "temp_int")
+    # bool -> temp_bool, float -> temp_float, string -> temp_str, int -> temp_int
+    if tipo == "bool":
+        return "temp_bool"
+    if tipo == "float":
+        return "temp_float"
+    if tipo == "string":
+        return "temp_str"
+    return "temp_int"
 
 
 def _suf(tipo):
@@ -2092,6 +2117,7 @@ class MemoryAllocator:
         # Rango de cuadruplos que pertenece a cada funcion / al main
         self.ranges = {}       # dueno -> (primer_quad, ultimo_quad)
         self.main_start = None
+        self.errors = []       # errores de asignacion de memoria (p. ej. desborde de region)
 
     # ---- utilidades ----------------------------------------------------
 
@@ -2145,7 +2171,7 @@ class MemoryAllocator:
                 "n_params": info["n_params"],
                 "param_addr": [],
                 "counts": {"local_int": 0, "local_float": 0, "local_str": 0,
-                           "temp_int": 0, "temp_float": 0, "temp_bool": 0},
+                           "temp_int": 0, "temp_float": 0, "temp_bool": 0, "temp_str": 0},
             }
 
     def _alloc_globals(self):
@@ -2153,6 +2179,11 @@ class MemoryAllocator:
         for name, v in tabla.items():
             region = "global_" + _suf(v["tipo"])
             cells = v["size"] if v["is_array"] and v["size"] else 1
+            if self.global_counts[region] + cells > REGION_SPAN:
+                self.errors.append(
+                    "la variable/arreglo global '%s' (%d celda(s)) excede la "
+                    "capacidad de la region %s (max %d celdas)"
+                    % (name, cells, region, REGION_SPAN))
             addr = REGION_BASE[region] + self.global_counts[region]
             self.var_addr[(self.gscope, name)] = addr
             self.global_counts[region] += cells
@@ -2177,6 +2208,11 @@ class MemoryAllocator:
                     continue
                 region = "local_" + _suf(v["tipo"])
                 cells = v["size"] if v["is_array"] and v["size"] else 1
+                if local_counter[_suf(v["tipo"])] + cells > REGION_SPAN:
+                    self.errors.append(
+                        "la variable/arreglo local '%s' de la funcion '%s' "
+                        "(%d celda(s)) excede la capacidad de la region %s (max %d)"
+                        % (name, fname, cells, region, REGION_SPAN))
                 addr = REGION_BASE[region] + local_counter[_suf(v["tipo"])]
                 self.var_addr[(fname, name)] = addr
                 local_counter[_suf(v["tipo"])] += cells
@@ -2190,13 +2226,14 @@ class MemoryAllocator:
             if not isinstance(res, str) or not _TEMP_RE.match(res):
                 continue
             tipo = q.get("res_type", "-")
-            if tipo not in ("int", "float", "bool"):
+            if tipo not in ("int", "float", "bool", "string"):
                 continue
             owner = self._owner_of(q["num"])
             if (owner, res) in self.temp_addr:
                 continue
             region = _temp_region(tipo)
-            counters.setdefault(owner, {"temp_int": 0, "temp_float": 0, "temp_bool": 0})
+            counters.setdefault(owner, {"temp_int": 0, "temp_float": 0,
+                                        "temp_bool": 0, "temp_str": 0})
             addr = REGION_BASE[region] + counters[owner][region]
             counters[owner][region] += 1
             self.temp_addr[(owner, res)] = addr
@@ -2380,7 +2417,8 @@ class MemoryAllocator:
         lines.append("cons")
         for addr, py, tipo in self.const_list:
             if tipo == "str":
-                val = '"' + str(py).replace("\n", "\\n") + '"'
+                esc = str(py).replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n")
+                val = '"' + esc + '"'
             else:
                 val = str(py)
             lines.append("%d\t%s\t%s" % (addr, "cte_" + tipo, val))
@@ -2389,7 +2427,7 @@ class MemoryAllocator:
         # Seccion de memoria global (globales + temporales del main + cuenta de constantes)
         lines.append("memo")
         for region in ("global_int", "global_float", "global_str", "global_void",
-                       "temp_int", "temp_float", "temp_bool",
+                       "temp_int", "temp_float", "temp_bool", "temp_str",
                        "cte_int", "cte_float", "cte_str"):
             lines.append("%s %d" % (region, self.global_counts[region]))
         lines.append("")
@@ -2401,7 +2439,7 @@ class MemoryAllocator:
             lines.append("params %d" % fi["n_params"])
             lines.append("param_addr " + " ".join(str(a) for a in fi["param_addr"]))
             for region in ("local_int", "local_float", "local_str",
-                           "temp_int", "temp_float", "temp_bool"):
+                           "temp_int", "temp_float", "temp_bool", "temp_str"):
                 lines.append("%s %d" % (region, fi["counts"][region]))
             lines.append("end")
         lines.append("")
@@ -2497,6 +2535,11 @@ def main():
     # 3) Generar la representacion intermedia con memoria virtual
     alloc = MemoryAllocator(parser)
     alloc.allocate()
+    if alloc.errors:
+        print("Errores de asignacion de memoria:")
+        for e in alloc.errors:
+            print("  " + e)
+        return  # abortar
     obj_ir = alloc.format_object_ir()
     debug_ir = alloc.format_debug_ir()
 

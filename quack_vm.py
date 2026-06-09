@@ -35,7 +35,7 @@ import sys
 REGION_BASE = {
     "global_int": 1000, "global_float": 2000, "global_str": 3000, "global_void": 4000,
     "local_int": 7000, "local_float": 8000, "local_str": 9000,
-    "temp_int": 12000, "temp_float": 13000, "temp_bool": 14000,
+    "temp_int": 12000, "temp_float": 13000, "temp_bool": 14000, "temp_str": 15000,
     "cte_int": 17000, "cte_float": 18000, "cte_str": 19000,
 }
 RET_REG = 5000          # registro unico de retorno
@@ -94,8 +94,8 @@ class VirtualMachine:
                 continue
 
             if section == "cons":
-                # <dir>\t<tipo>\t<valor>
-                parts = line.split("\t")
+                # <dir>\t<tipo>\t<valor>  (solo los dos primeros \t son separadores)
+                parts = line.split("\t", 2)
                 addr = int(parts[0].strip())
                 tipo = parts[1].strip()
                 raw_val = parts[2] if len(parts) > 2 else ""
@@ -112,7 +112,7 @@ class VirtualMachine:
                 elif toks[0] == "param_addr":
                     self.func_dir[cur_func]["param_addr"] = [int(x) for x in toks[1:]]
                 elif toks[0] in ("local_int", "local_float", "local_str",
-                                 "temp_int", "temp_float", "temp_bool"):
+                                 "temp_int", "temp_float", "temp_bool", "temp_str"):
                     self.func_dir[cur_func]["counts"][toks[0]] = int(toks[1])
                 elif toks[0] == "end":
                     cur_func = None
@@ -127,7 +127,8 @@ class VirtualMachine:
                         "params": 0,
                         "param_addr": [],
                         "counts": {"local_int": 0, "local_float": 0, "local_str": 0,
-                                   "temp_int": 0, "temp_float": 0, "temp_bool": 0},
+                                   "temp_int": 0, "temp_float": 0, "temp_bool": 0,
+                                   "temp_str": 0},
                     }
 
             elif section == "quads":
@@ -141,10 +142,20 @@ class VirtualMachine:
             return int(raw)
         if tipo == "cte_float":
             return float(raw)
-        # cadena: quitar comillas y restaurar saltos de linea
+        # cadena: quitar comillas y des-escapar \\  \t  \n en una sola pasada
         if raw.startswith('"') and raw.endswith('"'):
             raw = raw[1:-1]
-        return raw.replace("\\n", "\n")
+        out = []
+        i = 0
+        while i < len(raw):
+            if raw[i] == "\\" and i + 1 < len(raw):
+                c = raw[i + 1]
+                out.append({"t": "\t", "n": "\n", "\\": "\\"}.get(c, c))
+                i += 2
+            else:
+                out.append(raw[i])
+                i += 1
+        return "".join(out)
 
     # ---- simulacion de memoria por regiones ---------------------------
 
@@ -179,6 +190,17 @@ class VirtualMachine:
         if not (0 <= offset < limit):
             self._fail("acceso a memoria no reservada (dir %d)" % addr)
 
+    def _default_for(self, region):
+        # Valor por defecto de una celda reservada pero aun no escrita,
+        # segun el tipo de su region (decision de diseno del equipo).
+        if region.endswith("_float"):
+            return 0.0
+        if region.endswith("_str"):
+            return ""
+        if region.endswith("_bool"):
+            return False
+        return 0   # *_int y global_void
+
     def read(self, addr):
         addr = int(addr)
         if addr == RET_REG:
@@ -189,12 +211,13 @@ class VirtualMachine:
         self._check_reserved(addr, region)
         if region.startswith("cte_"):
             return self.const_mem[addr]
+        default = self._default_for(region)
         if region.startswith("global_"):
-            return self.global_mem.get(addr, 0)
+            return self.global_mem.get(addr, default)
         # local_* / temp_*
         if self.call_stack:
-            return self.call_stack[-1].mem.get(addr, 0)
-        return self.global_mem.get(addr, 0)   # temporales del main
+            return self.call_stack[-1].mem.get(addr, default)
+        return self.global_mem.get(addr, default)   # temporales del main
 
     def write(self, addr, value):
         addr = int(addr)
@@ -393,6 +416,12 @@ class VirtualMachine:
         self.cur = start
 
     def _return(self, q):
+        # Guarda defensiva: el compilador prohibe 'return' en el main, pero si
+        # se ejecutara una RI sin frame activo, se trata como fin de programa.
+        if not self.call_stack:
+            sys.stdout.flush()
+            self.cur = len(self.quads)   # detiene el loop
+            return
         if q.arg_izq != "-1" and q.arg_izq != -1:
             self.global_mem[RET_REG] = self.read(q.arg_izq)
         frame = self.call_stack.pop()
