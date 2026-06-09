@@ -94,12 +94,8 @@ class VirtualMachine:
                 continue
 
             if section == "cons":
-                # <dir>\t<tipo>\t<valor>  (solo los dos primeros \t son separadores)
-                parts = line.split("\t", 2)
-                addr = int(parts[0].strip())
-                tipo = parts[1].strip()
-                raw_val = parts[2] if len(parts) > 2 else ""
-                self.const_mem[addr] = self._parse_const(tipo, raw_val)
+                addr, tipo, rawval = self._parse_cons_line(line)
+                self.const_mem[addr] = self._parse_const(tipo, rawval)
 
             elif section == "memo":
                 toks = line.split()
@@ -135,6 +131,30 @@ class VirtualMachine:
                 toks = line.split()
                 # num op argL argR res
                 self.quads.append(Quack(toks[:5]))
+
+    def _type_from_addr(self, addr):
+        base = (addr // 1000) * 1000
+        if base == REGION_BASE["cte_int"]:
+            return "cte_int"
+        if base == REGION_BASE["cte_float"]:
+            return "cte_float"
+        if base == REGION_BASE["cte_str"]:
+            return "cte_str"
+        return "cte_int"
+
+    def _parse_cons_line(self, line):
+        # Acepta dos formatos:
+        #  (1) convencion de clase:    <valor>  <direccion>   (valor primero;
+        #      el tipo se infiere por el rango de la direccion)
+        #  (2) extendido del equipo:   <direccion>\t<cte_tipo>\t<valor>
+        line = line.strip()
+        cols = line.split("\t")
+        if len(cols) >= 3 and cols[1].strip().startswith("cte_"):
+            return int(cols[0].strip()), cols[1].strip(), cols[2]
+        # convencion de clase: la direccion es el ultimo token; el valor, lo demas
+        head, addr_str = line.rsplit(None, 1)
+        addr = int(addr_str)
+        return addr, self._type_from_addr(addr), head.strip()
 
     def _parse_const(self, tipo, raw):
         raw = raw.strip()
@@ -309,7 +329,7 @@ class VirtualMachine:
                 sys.stdout.write(self._fmt(self.read(q.arg_izq)))
                 self.cur += 1
 
-            elif op == "newline":
+            elif op == "newline" or op == "endprint":
                 sys.stdout.write("\n")
                 self.cur += 1
 

@@ -2409,11 +2409,15 @@ class MemoryAllocator:
     # ---- impresion de la representacion intermedia para la VM ----------
 
     def format_object_ir(self):
-        """Forma final de la RI: SOLO direcciones. Es el archivo que la
-        maquina virtual carga y ejecuta."""
+        """Forma final de la RI, apegada a la convencion vista en clase:
+        - cons:  <valor>  <direccion>   (el tipo se infiere por el rango)
+        - memo:  <region> <cantidad>    (solo regiones con cantidad > 0)
+        - func:  un bloque por funcion (extension para funciones/arreglos)
+        - quads: <num> <op> <argL> <argR> <res>   (solo direcciones)
+        Es el archivo que la maquina virtual carga y ejecuta."""
         lines = []
 
-        # Seccion de constantes:  direccion  tipo  valor
+        # Seccion de constantes:  valor  direccion  (valor primero, como en clase)
         lines.append("cons")
         for addr, py, tipo in self.const_list:
             if tipo == "str":
@@ -2421,28 +2425,34 @@ class MemoryAllocator:
                 val = '"' + esc + '"'
             else:
                 val = str(py)
-            lines.append("%d\t%s\t%s" % (addr, "cte_" + tipo, val))
+            lines.append("%s\t%d" % (val, addr))
         lines.append("")
 
-        # Seccion de memoria global (globales + temporales del main + cuenta de constantes)
+        # Seccion de memoria global (globales + temporales del main + constantes).
+        # Solo se listan las regiones con cantidad > 0; lo ausente vale 0.
         lines.append("memo")
         for region in ("global_int", "global_float", "global_str", "global_void",
                        "temp_int", "temp_float", "temp_bool", "temp_str",
                        "cte_int", "cte_float", "cte_str"):
-            lines.append("%s %d" % (region, self.global_counts[region]))
+            if self.global_counts[region] > 0:
+                lines.append("%s %d" % (region, self.global_counts[region]))
         lines.append("")
 
-        # Una seccion por funcion con la memoria que requiere su frame
-        lines.append("func")
-        for fname, fi in self.func_info.items():
-            lines.append("%s\t%d\t%s" % (fname, fi["start_quad"], fi["return_type"]))
-            lines.append("params %d" % fi["n_params"])
-            lines.append("param_addr " + " ".join(str(a) for a in fi["param_addr"]))
-            for region in ("local_int", "local_float", "local_str",
-                           "temp_int", "temp_float", "temp_bool", "temp_str"):
-                lines.append("%s %d" % (region, fi["counts"][region]))
-            lines.append("end")
-        lines.append("")
+        # Un bloque por funcion con la memoria que requiere su frame.
+        # (solo se imprime si hay funciones; lo ausente significa "no hay")
+        if self.func_info:
+            lines.append("func")
+            for fname, fi in self.func_info.items():
+                lines.append("%s\t%d\t%s" % (fname, fi["start_quad"], fi["return_type"]))
+                lines.append("params %d" % fi["n_params"])
+                if fi["param_addr"]:
+                    lines.append("param_addr " + " ".join(str(a) for a in fi["param_addr"]))
+                for region in ("local_int", "local_float", "local_str",
+                               "temp_int", "temp_float", "temp_bool", "temp_str"):
+                    if fi["counts"][region] > 0:
+                        lines.append("%s %d" % (region, fi["counts"][region]))
+                lines.append("end")
+            lines.append("")
 
         # Cuadruplos en direcciones
         lines.append("quads")
