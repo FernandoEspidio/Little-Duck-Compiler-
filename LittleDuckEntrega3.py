@@ -324,6 +324,7 @@ class Tokenizer:
     def input(self, data):
         self.clean_tokens()
         self.source_code = data
+        self.last_token_line = 1
         self.lexer.lineno = 1
         self.lexer.input(data)
 
@@ -335,6 +336,7 @@ class Tokenizer:
                 return None
             if tok.type in ("COMMENT", "BLOCK_COMMENT"):
                 continue
+            self.last_token_line = tok.lineno  # se recuerda para las reglas marcador
             return tok
 
     # PLY consulta lexer.lineno y lexer.lexpos directamente para rastrear posicion cuando se usa tracking=True.
@@ -692,10 +694,11 @@ class Parser:
         return_type = rt[0] if isinstance(rt, tuple) else rt
         gtabla = self.func_dir.get(self.global_scope, {}).get("var_table", {})
         if name in self.func_dir:
-            self.add_sem_error("funcion '%s' ya declarada" % name)
+            self.add_sem_error("funcion '%s' ya declarada" % name, self._cur_line())
         elif name in gtabla:
             self.add_sem_error(
-                "el nombre '%s' ya esta usado por una variable global" % name
+                "el nombre '%s' ya esta usado por una variable global" % name,
+                self._cur_line()
             )
         # Se registra (o re-registra) el scope de la funcion aunque haya
         # colision, para que su cuerpo se siga analizando sin romper las
@@ -728,7 +731,8 @@ class Parser:
         if rec.get("return_type", "void") != "void" and not rec.get("has_return"):
             self.add_sem_error(
                 "la funcion '%s' es de tipo %s y debe tener un 'return' con valor"
-                % (scope, rec.get("return_type"))
+                % (scope, rec.get("return_type")),
+                self._cur_line()
             )
         self.emit("endfun", "-", "-", "-")
         # se cierra el scope de la funcion (se vuelve al global)
@@ -992,7 +996,7 @@ class Parser:
         """np_call_start : empty"""
         name = p[-2]  # el ID de la funcion (id LPAREN np_call_start)
         if name not in self.func_dir or name == self.global_scope:
-            self.add_sem_error("funcion '%s' no declarada" % name)
+            self.add_sem_error("funcion '%s' no declarada" % name, self._cur_line())
             self.call_stack.append({"name": name, "idx": 0, "params": [], "valid": False})
         else:
             # Quad de encabezado de la llamada: indica a la maquina virtual a
@@ -1041,7 +1045,7 @@ class Parser:
         cond = self.pop_operand()
         if cond[1] != "bool":
             self.add_sem_error(
-                "la condicion del if debe ser bool, no %s" % cond[1]
+                "la condicion del if debe ser bool, no %s" % cond[1], self._cur_line()
             )
         q = self.emit("gotof", cond[0], "-", None)
         self.jump_stack.append(q)
@@ -1116,7 +1120,7 @@ class Parser:
         cond = self.pop_operand()
         if cond[1] != "bool":
             self.add_sem_error(
-                "la condicion del do-while debe ser bool, no %s" % cond[1]
+                "la condicion del do-while debe ser bool, no %s" % cond[1], self._cur_line()
             )
         start = self.jump_stack.pop()
         self.emit("gotot", cond[0], "-", start)
@@ -1149,7 +1153,7 @@ class Parser:
         cond = self.pop_operand()
         if cond[1] != "bool":
             self.add_sem_error(
-                "la condicion del while debe ser bool, no %s" % cond[1]
+                "la condicion del while debe ser bool, no %s" % cond[1], self._cur_line()
             )
         q = self.emit("gotof", cond[0], "-", None)
         self.jump_stack.append(q)
@@ -1185,7 +1189,7 @@ class Parser:
         cond = self.pop_operand()
         if cond[1] != "bool":
             self.add_sem_error(
-                "la condicion del for debe ser bool, no %s" % cond[1]
+                "la condicion del for debe ser bool, no %s" % cond[1], self._cur_line()
             )
         gotof_q = self.emit("gotof", cond[0], "-", None) # a END
         goto_body_q = self.emit("goto", "-", "-", None) # a BODY
@@ -1302,16 +1306,15 @@ class Parser:
         """np_case_test : empty"""
         cval = self.pop_operand()  # la constante del case (apilada por cte)
         sw = self.switch_stack[-1]
-        if cval[1] != sw["val"][1] and not (
-            {cval[1], sw["val"][1]} <= {"int", "float"}
-        ):
+        if cval[1] != sw["val"][1]:
             self.add_sem_error(
-                "el tipo del case (%s) no coincide con el del switch (%s)"
-                % (cval[1], sw["val"][1])
+                "el tipo del case (%s) debe ser igual al del switch (%s)"
+                % (cval[1], sw["val"][1]),
+                self._cur_line()
             )
         # un mismo valor de case no puede repetirse (los demas serian inalcanzables)
         if cval[0] in sw["seen"]:
-            self.add_sem_error("valor de case duplicado: %s" % cval[0])
+            self.add_sem_error("valor de case duplicado: %s" % cval[0], self._cur_line())
         else:
             sw["seen"].append(cval[0])
         temp = self.new_temp()
@@ -1383,7 +1386,7 @@ class Parser:
         cond = self.pop_operand()
         if cond[1] != "bool":
             self.add_sem_error(
-                "la condicion del ternario debe ser bool, no %s" % cond[1]
+                "la condicion del ternario debe ser bool, no %s" % cond[1], self._cur_line()
             )
         gq = self.emit("gotof", cond[0], "-", None)
         self.jump_stack.append(gq)
@@ -1414,7 +1417,8 @@ class Parser:
         if rtype == "error":
             self.add_sem_error(
                 "las ramas del ternario tienen tipos incompatibles (%s y %s)"
-                % (t["ttype"], fval[1])
+                % (t["ttype"], fval[1]),
+                self._cur_line()
             )
             rtype = t["ttype"]
         self.operand_stack.append((t["res"], rtype))
@@ -1690,6 +1694,11 @@ class Parser:
     def add_sem_error(self, message, lineno=0):
         self.sem_errors.append({"message": message, "lineno": lineno})
 
+    # Linea aproximada para errores en reglas marcador (np_*) y helpers, que no
+    # tienen un token propio: se usa la del ultimo token leido por el lexer.
+    def _cur_line(self):
+        return getattr(self.tokenizer, "last_token_line", 0)
+
     # Indica si un nombre ya esta tomado por una funcion o por el programa.
     # Sirve para evitar colisiones entre los nombres de funciones y los de
     # variables/parametros, que viven en estructuras separadas (func_dir vs.
@@ -1745,12 +1754,12 @@ class Parser:
         # el + unario no genera codigo, solo valida que sea numerico
         if op == "+":
             if val[1] not in ("int", "float"):
-                self.add_sem_error("'+' unario requiere numerico, no %s" % val[1])
+                self.add_sem_error("'+' unario requiere numerico, no %s" % val[1], self._cur_line())
             self.operand_stack.append(val)
             return
         res = resultado_unario(op, val[1])
         if res == "error":
-            self.add_sem_error("operador unario '%s' invalido para %s" % (op, val[1]))
+            self.add_sem_error("operador unario '%s' invalido para %s" % (op, val[1]), self._cur_line())
             self.operand_stack.append(("error", "error"))
         else:
             temp = self.new_temp()
@@ -1789,11 +1798,11 @@ class Parser:
         val = self.pop_operand()
         rec = self.lookup_var(val[0])
         if rec is None:
-            self.add_sem_error("'%s' no es asignable" % val[0])
+            self.add_sem_error("'%s' no es asignable" % val[0], self._cur_line())
             self.operand_stack.append(("error", "error"))
             return
         if rec["tipo"] not in ("int", "float"):
-            self.add_sem_error("'%s' debe ser numerico para ++/--" % val[0])
+            self.add_sem_error("'%s' debe ser numerico para ++/--" % val[0], self._cur_line())
         # se devuelve el valor actual y luego se actualiza la variable
         self.emit(op, val[0], 1, val[0], rec["tipo"])
         self.operand_stack.append((val[0], rec["tipo"]))
@@ -1860,12 +1869,14 @@ class Parser:
                 if arg[1] == "arreglo":
                     self.add_sem_error(
                         "argumento %d de '%s': '%s' es un arreglo sin indexar"
-                        % (idx + 1, call["name"], arg[0])
+                        % (idx + 1, call["name"], arg[0]),
+                        self._cur_line()
                     )
                 elif compatible_asignacion(expected, arg[1]) == "error":
                     self.add_sem_error(
                         "argumento %d de '%s': se esperaba %s y se recibio %s"
-                        % (idx + 1, call["name"], expected, arg[1])
+                        % (idx + 1, call["name"], expected, arg[1]),
+                        self._cur_line()
                     )
                 self.emit("param", arg[0], "-", "-")
             else:
