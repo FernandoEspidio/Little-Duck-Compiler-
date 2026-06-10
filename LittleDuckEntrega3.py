@@ -2531,7 +2531,7 @@ class MemoryAllocator:
 
 ARCHIVO_FUENTE = "input.txt"
 ARCHIVO_RI_NOMBRES = "ri_nombres.txt"   # RI con nombres, para debug
-ARCHIVO_RI_MEMORIA = "ri_memoria.txt"   # RI con direcciones, la ejecuta la VM
+ARCHIVO_RI_MEMORIA = "quacks.txt"   # RI con direcciones, la ejecuta la VM
 
 
 def main():

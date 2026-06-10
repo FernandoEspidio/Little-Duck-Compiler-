@@ -477,7 +477,7 @@ class VirtualMachine:
 # ---- uso como programa independiente ----------------------------------
 
 def main():
-    archivo = sys.argv[1] if len(sys.argv) > 1 else "ri_memoria.txt"
+    archivo = sys.argv[1] if len(sys.argv) > 1 else "quacks.txt"
     try:
         text = open(archivo, encoding="utf-8").read()
     except FileNotFoundError:
