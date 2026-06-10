@@ -5,7 +5,7 @@ var
     limite : int;
 
 main {
-    print("=== Test VM: Índice Variable en Bucle ===");
+    print("=== Test VM: Indice Variable en Bucle ===");
     
     i = 0;
     while (i < 7) {
@@ -17,12 +17,12 @@ main {
     limite = 10;
     i = 0;
     
-    print("Intentando acceder más allá del límite...");
+    print("Intentando acceder mas alla del limite...");
     while (i < limite) {
         print("arreglo[", i, "] = ", arreglo[i]);
         i = i + 1;
     };
-    
-    print("Esta línea no debería ejecutarse");
+
+    print("Esta linea no deberia ejecutarse");
 }
 end

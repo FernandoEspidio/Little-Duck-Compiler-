@@ -32,7 +32,7 @@ void funcion_pesada(nivel: int) [
 main {
     frames_creados = 0;
     
-    print("=== Test VM: Recursión con Memoria Intensiva ===");
+    print("=== Test VM: Recursion con Memoria Intensiva ===");
     print("Creando 500 frames con 150 enteros cada uno...");
     funcion_pesada(1);
     print("Total frames creados: ", frames_creados);

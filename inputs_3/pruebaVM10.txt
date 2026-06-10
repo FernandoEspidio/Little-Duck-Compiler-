@@ -23,7 +23,7 @@ void calculo_extremo(base: int, exponente: int) [
 main {
     resultado_global = 0;
     
-    print("=== Test VM: Parámetros con Valores Extremos ===");
+    print("=== Test VM: Parametros con Valores Extremos ===");
     
     calculo_extremo(2, 10);
     print("2^10 = ", resultado_global);

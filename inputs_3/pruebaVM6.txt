@@ -23,8 +23,8 @@ void funcion_sin_caso_base(nivel: int) [
 main {
     contador = 0;
     
-    print("=== Test VM: Recursión Infinita ===");
+    print("=== Test VM: Recursion Infinita ===");
     funcion_sin_caso_base(1);
-    print("Esta línea no debería ejecutarse");
+    print("Esta linea no deberia ejecutarse");
 }
 end

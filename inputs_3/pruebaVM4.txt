@@ -5,22 +5,22 @@ var
     i : int;
 
 main {
-    print("=== Test VM: Índice Fuera de Rango (Lectura) ===");
+    print("=== Test VM: Indice Fuera de Rango (Lectura) ===");
     
     datos[0] = 100;
     datos[1] = 200;
     datos[2] = 300;
     
-    print("Leyendo índices válidos:");
+    print("Leyendo indices validos:");
     i = 0;
     while (i < 3) {
         print("datos[", i, "] = ", datos[i]);
         i = i + 1;
     };
     
-    print("Intentando leer índice inválido...");
+    print("Intentando leer indice invalido...");
     valor = datos[5];
-    print("Valor leído: ", valor);
-    print("Esta línea no debería ejecutarse");
+    print("Valor leido: ", valor);
+    print("Esta linea no deberia ejecutarse");
 }
 end

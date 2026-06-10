@@ -12,7 +12,7 @@ main {
     a = 999999;
     b = 999999;
     c = a * b;
-    print("Multiplicación grande: ", c);
+    print("Multiplicacion grande: ", c);
     
     a = 100;
     b = 0;
@@ -20,12 +20,12 @@ main {
     print("Resta normal: ", c);
     
     d = 0 - 100;
-    print("Número negativo: ", d);
+    print("Numero negativo: ", d);
     
     a = 1;
     b = 3;
     c = a / b;
-    print("División con resultado fraccional: ", c);
+    print("Division con resultado fraccional: ", c);
     
     print("=== Fin del test ===");
 }

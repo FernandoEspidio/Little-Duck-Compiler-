@@ -18,8 +18,8 @@ main {
     x = 100;
     y = 0;
     
-    print("=== Test VM: División entre Cero ===");
+    print("=== Test VM: Division entre Cero ===");
     dividir(x, y);
-    print("Esta línea no debería ejecutarse");
+    print("Esta linea no deberia ejecutarse");
 }
 end

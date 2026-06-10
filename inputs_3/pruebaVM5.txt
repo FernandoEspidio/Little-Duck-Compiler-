@@ -5,7 +5,7 @@ var
     resultado : int;
 
 main {
-    print("=== Test VM: Índice de Arreglo Negativo ===");
+    print("=== Test VM: Indice de Arreglo Negativo ===");
     
     arreglo[0] = 10;
     arreglo[1] = 20;
@@ -13,10 +13,10 @@ main {
     arreglo[3] = 40;
     
     indice_malo = 0 - 1;
-    print("Índice calculado: ", indice_malo);
-    
+    print("Indice calculado: ", indice_malo);
+
     resultado = arreglo[indice_malo];
     print("Resultado: ", resultado);
-    print("Esta línea no debería ejecutarse");
+    print("Esta linea no deberia ejecutarse");
 }
 end

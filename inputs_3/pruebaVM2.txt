@@ -18,8 +18,8 @@ main {
     a = 25;
     b = 0;
     
-    print("=== Test VM: Módulo entre Cero ===");
+    print("=== Test VM: Modulo entre Cero ===");
     calcular_modulo(a, b);
-    print("Esta línea no debería ejecutarse");
+    print("Esta linea no deberia ejecutarse");
 }
 end

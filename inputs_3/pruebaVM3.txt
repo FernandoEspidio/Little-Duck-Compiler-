@@ -4,8 +4,8 @@ var
     i : int;
 
 main {
-    print("=== Test VM: Índice Fuera de Rango (Escritura) ===");
-    
+    print("=== Test VM: Indice Fuera de Rango (Escritura) ===");
+
     i = 0;
     while (i < 5) {
         arreglo[i] = i * 10;
@@ -13,8 +13,8 @@ main {
         i = i + 1;
     };
     
-    print("Intentando escribir en índice inválido...");
+    print("Intentando escribir en indice invalido...");
     arreglo[10] = 999;
-    print("Esta línea no debería ejecutarse");
+    print("Esta linea no deberia ejecutarse");
 }
 end
