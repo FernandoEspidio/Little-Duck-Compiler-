@@ -1,0 +1,32 @@
+program test_vm_operaciones_extremas;
+var
+    a : int;
+    b : int;
+    c : int;
+    d : int;
+    resultado : int;
+
+main {
+    print("=== Test VM: Operaciones con Valores Extremos ===");
+    
+    a = 999999;
+    b = 999999;
+    c = a * b;
+    print("Multiplicación grande: ", c);
+    
+    a = 100;
+    b = 0;
+    c = a - b;
+    print("Resta normal: ", c);
+    
+    d = 0 - 100;
+    print("Número negativo: ", d);
+    
+    a = 1;
+    b = 3;
+    c = a / b;
+    print("División con resultado fraccional: ", c);
+    
+    print("=== Fin del test ===");
+}
+end

@@ -1,0 +1,28 @@
+program test_vm_indice_variable;
+var
+    arreglo : int[7];
+    i : int;
+    limite : int;
+
+main {
+    print("=== Test VM: Índice Variable en Bucle ===");
+    
+    i = 0;
+    while (i < 7) {
+        arreglo[i] = (i + 1) * 100;
+        print("arreglo[", i, "] = ", arreglo[i]);
+        i = i + 1;
+    };
+    
+    limite = 10;
+    i = 0;
+    
+    print("Intentando acceder más allá del límite...");
+    while (i < limite) {
+        print("arreglo[", i, "] = ", arreglo[i]);
+        i = i + 1;
+    };
+    
+    print("Esta línea no debería ejecutarse");
+}
+end

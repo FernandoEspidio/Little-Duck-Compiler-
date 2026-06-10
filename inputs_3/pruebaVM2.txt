@@ -1,0 +1,25 @@
+program test_vm_modulo_cero;
+var
+    resultado : int;
+    a : int;
+    b : int;
+
+void calcular_modulo(x: int, y: int) [
+    var temp : int;
+    {
+        print("Calculando ", x, " % ", y);
+        temp = x % y;
+        print("Resultado: ", temp);
+        resultado = temp;
+    }
+];
+
+main {
+    a = 25;
+    b = 0;
+    
+    print("=== Test VM: Módulo entre Cero ===");
+    calcular_modulo(a, b);
+    print("Esta línea no debería ejecutarse");
+}
+end

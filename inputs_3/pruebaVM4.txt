@@ -1,0 +1,26 @@
+program test_vm_indice_fuera_rango_lectura;
+var
+    datos : int[3];
+    valor : int;
+    i : int;
+
+main {
+    print("=== Test VM: Índice Fuera de Rango (Lectura) ===");
+    
+    datos[0] = 100;
+    datos[1] = 200;
+    datos[2] = 300;
+    
+    print("Leyendo índices válidos:");
+    i = 0;
+    while (i < 3) {
+        print("datos[", i, "] = ", datos[i]);
+        i = i + 1;
+    };
+    
+    print("Intentando leer índice inválido...");
+    valor = datos[5];
+    print("Valor leído: ", valor);
+    print("Esta línea no debería ejecutarse");
+}
+end
