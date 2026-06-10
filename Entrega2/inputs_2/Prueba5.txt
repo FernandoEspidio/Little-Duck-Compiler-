@@ -1,0 +1,97 @@
+program operaciones_compuestas;
+
+# Prueba: asignaciones compuestas, arreglos de float, operadores logicos,
+# funciones con variables locales, if-else anidado
+
+var
+  i, n, cuenta : int;
+  acum : float;
+  pesos : float[4];
+
+float escalar(v: float, f: int) [
+  var tmp : float;
+  {
+    tmp = v;
+    tmp *= f;
+    return tmp;
+  }
+];
+
+int enRango(v: int, min: int, max: int) [
+  {
+    return v >= min && v <= max ? 1 : 0;
+  }
+];
+
+void contarPares(lim: int) [
+  var k, c : int;
+  {
+    k = 0;
+    c = 0;
+    while (k <= lim)
+    {
+      if (k % 2 == 0)
+      {
+        c++;
+      };
+      k++;
+    };
+    print("pares hasta", lim, ":", c);
+  }
+];
+
+main
+{
+  # Prueba: asignaciones compuestas sobre int y float
+  n = 20;
+  n -= 5;
+  n *= 2;
+  n %= 7;
+  print("n tras compuestas:", n);
+
+  acum = 0.0;
+  acum += 3.5;
+  acum *= 2;
+  print("acum:", acum);
+
+  # Prueba: arreglo de float con funcion escalar
+  pesos[0] = 1.5;
+  pesos[1] = 2.0;
+  pesos[2] = 3.5;
+  pesos[3] = 0.5;
+
+  for (i = 0; i < 4; i++)
+  {
+    pesos[i] = escalar(pesos[i], 10);
+    print("pesos[", i, "] =", pesos[i]);
+  };
+
+  # Prueba: if-else anidado con funcion que retorna ternario
+  n = 15;
+  if (n < 0)
+  {
+    print("negativo");
+  }
+  else
+  {
+    if (enRango(n, 1, 10) == 1)
+    {
+      print("en rango 1-10");
+    }
+    else
+    {
+      print("fuera de rango");
+    };
+  };
+
+  # Prueba: operadores logicos compuestos
+  if (n > 0 && n < 100 || n == 0)
+  {
+    print("condicion logica ok");
+  };
+
+  contarPares(12);
+
+  print("fin");
+}
+end

@@ -1,0 +1,82 @@
+program errores_semanticos;
+
+# Prueba: errores semanticos puros
+# variable no declarada, funcion no declarada, tipo incorrecto en retorno,
+# void en expresion, argumentos incorrectos, break/continue fuera de ciclo,
+# variable duplicada, arreglo sin indexar en expresion
+
+var
+  x, y : int;
+  x : float;
+  res : float;
+  lista : int[3];
+
+int calcular(a: int, b: int) [
+  {
+    return a + b;
+  }
+];
+
+void mostrar(v: int) [
+  {
+    print(v);
+  }
+];
+
+float obtener() [
+  {
+    return;
+  }
+];
+
+int sinRetorno(n: int) [
+  {
+    print(n);
+  }
+];
+
+main
+{
+  x = 5;
+  y = 3;
+
+  # Error semantico: variable no declarada
+  z = 10;
+
+  lista[0] = 1;
+  lista[1] = 2;
+  lista[2] = 3;
+
+  # Error semantico: arreglo sin indexar usado en expresion
+  res = lista + 1;
+
+  # Error semantico: funcion no declarada
+  y = inexistente(x);
+
+  # Error semantico: numero incorrecto de argumentos (espera 2, recibe 3)
+  y = calcular(x, y, 5);
+
+  # Error semantico: numero incorrecto de argumentos (espera 1, recibe 2)
+  mostrar(x, y);
+
+  # Error semantico: funcion void usada en expresion aritmetica
+  res = mostrar(x) + 1;
+
+  # Error semantico: asignacion de tipo incompatible (int <- string)
+  x = "hola";
+
+  # Error semantico: condicion del if no es bool
+  if (x + y)
+  {
+    print("mal");
+  };
+
+  # Error semantico: break fuera de ciclo o switch
+  break;
+
+  # Error semantico: continue fuera de ciclo
+  continue;
+
+  print("fin");
+}
+end

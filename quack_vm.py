@@ -133,6 +133,14 @@ class VirtualMachine:
                 # num op argL argR res
                 self.quads.append(Quack(toks[:5]))
 
+        # Red de seguridad: si una funcion no trae 'param_addr' (convencion de
+        # clase, que en su lugar usa el indice del parametro), se deriva
+        # asumiendo que los parametros ocupan los primeros locales enteros.
+        for info in self.func_dir.values():
+            if not info["param_addr"] and info["params"] > 0:
+                base = REGION_BASE["local_int"]
+                info["param_addr"] = [base + i for i in range(info["params"])]
+
     def _type_from_addr(self, addr):
         base = (addr // 1000) * 1000
         if base == REGION_BASE["cte_int"]:

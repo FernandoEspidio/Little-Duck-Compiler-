@@ -5,7 +5,7 @@ parsetab.py.bak
 prueba-ir.txt
 repIntermedia.txt
 *.txt
-
+!**/inputs_*/*.txt
 prueba.py
 
 __pycache__/

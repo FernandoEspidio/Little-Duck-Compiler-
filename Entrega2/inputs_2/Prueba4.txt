@@ -1,0 +1,61 @@
+program errores_estructurales;
+
+# Prueba: errores sintacticos estructurales
+# var dentro de main, if sin ;, asignacion compuesta sin expresion,
+# print con coma pero sin expresion, acceso a arreglo mal formado
+
+var
+  x, y, i : int;
+  datos : int[5];
+
+int duplicar(n: int) [
+  {
+    return n * 2;
+  }
+];
+
+void imprimir(v: int) [
+  {
+    print("v:", v);
+  }
+];
+
+main
+{
+  x = 4;
+  y = 8;
+
+  # Error sintactico: no se permite declarar var dentro del body de main
+  var local : int;
+
+  datos[0] = duplicar(x);
+  datos[1] = duplicar(y);
+
+  # Error sintactico: asignacion compuesta sin expresion del lado derecho
+  y += ;
+
+  # Error sintactico: acceso a arreglo sin cerrar corchete
+  datos[i = 99;
+
+  # Error sintactico: print con coma pero sin expresion al final
+  print("x:", x, );
+
+  # Error sintactico: if sin punto y coma al cerrar
+  if (x > 0)
+  {
+    print("positivo");
+  }
+
+  print("esta linea prueba recuperacion tras el if");
+
+  for (i = 0; i < 5; i++)
+  {
+    imprimir(datos[i]);
+  };
+
+  # Error sintactico: falta argumento despues de la coma en llamada
+  imprimir(x, );
+
+  print("fin");
+}
+end

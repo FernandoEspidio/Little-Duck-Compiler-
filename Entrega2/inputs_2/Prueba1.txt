@@ -1,0 +1,103 @@
+program completo;
+
+# Prueba: variables globales, arreglo, funciones con retorno y void
+
+var
+  i, n, total : int;
+  promedio : float;
+  nums : int[5];
+
+int mayor(a: int, b: int) [
+  {
+    return a > b ? a : b;
+  }
+];
+
+int menor(a: int, b: int) [
+  {
+    return a < b ? a : b;
+  }
+];
+
+void llenar() [
+  var k : int;
+  {
+    k = 0;
+    do
+    {
+      nums[k] = k * 3 + 2;
+      k++;
+    }
+    while (k < 5);
+  }
+];
+
+float calcPromedio(tam: int) [
+  var s, j : int;
+  {
+    s = 0;
+    for (j = 0; j < tam; j++)
+    {
+      s += nums[j];
+    };
+    return s / tam;
+  }
+];
+
+void clasificar(v: int) [
+  {
+    switch (v % 3)
+    {
+      case 0:
+        print(v, "multiplo de 3");
+      case 1:
+        print(v, "residuo 1");
+      case 2:
+        print(v, "residuo 2");
+    };
+  }
+];
+
+main
+{
+  # Prueba: llamada void, for, acceso a arreglo
+  llenar();
+  for (i = 0; i < 5; i++)
+  {
+    print("nums[", i, "] =", nums[i]);
+  };
+
+  # Prueba: funciones con retorno como argumento y en asignacion
+  n = mayor(nums[0], nums[4]);
+  print("mayor:", n);
+  n = menor(nums[1], nums[3]);
+  print("menor:", n);
+
+  promedio = calcPromedio(5);
+  print("promedio:", promedio);
+
+  # Prueba: while con break y continue
+  i = 0;
+  while (i < 20)
+  {
+    i++;
+    if (i % 2 == 0)
+    {
+      continue;
+    };
+    if (i > 9)
+    {
+      break;
+    };
+    print("impar:", i);
+  };
+
+  # Prueba: switch dentro de for
+  for (i = 1; i <= 6; i++)
+  {
+    clasificar(i);
+  };
+
+  print("fin");
+}
+end
