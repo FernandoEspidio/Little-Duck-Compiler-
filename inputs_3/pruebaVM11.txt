@@ -1,0 +1,19 @@
+program test_vm_memoria_no_reservada;
+var
+    x : int;
+
+void verificar(a: int) [
+    var temp : int;
+    {
+        if (a > 0) {
+            print("Valor positivo: ", a);
+        };
+    }
+];
+
+main {
+    x = 5;
+    print("=== Test VM: Acceso a Memoria No Reservada ===");
+    verificar(x);
+}
+end
