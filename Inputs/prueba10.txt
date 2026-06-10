@@ -1,0 +1,30 @@
+program test_vm_recursion_infinita;
+var
+    contador : int;
+
+void funcion_sin_caso_base(nivel: int) [
+    var 
+        arr : int[5];
+        i : int;
+    {
+        contador = contador + 1;
+        
+        i = 0;
+        while (i < 5) {
+            arr[i] = nivel * 10 + i;
+            i = i + 1;
+        };
+        
+        print("Nivel: ", nivel, " - Total llamadas: ", contador);
+        funcion_sin_caso_base(nivel + 1);
+    }
+];
+
+main {
+    contador = 0;
+    
+    print("=== Test VM: Recursion Infinita ===");
+    funcion_sin_caso_base(1);
+    print("Esta linea no deberia ejecutarse");
+}
+end

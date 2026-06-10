@@ -1,0 +1,40 @@
+program test_vm_recursion_memoria;
+var
+    frames_creados : int;
+
+void funcion_pesada(nivel: int) [
+    var 
+        arr1 : int[50];
+        arr2 : int[50];
+        arr3 : int[50];
+        i : int;
+    {
+        frames_creados = frames_creados + 1;
+        
+        i = 0;
+        while (i < 50) {
+            arr1[i] = nivel * 1000 + i;
+            arr2[i] = nivel * 2000 + i;
+            arr3[i] = nivel * 3000 + i;
+            i = i + 1;
+        };
+        
+        if (nivel % 10 == 0) {
+            print("Frame ", nivel, " creado - Total: ", frames_creados);
+        };
+        
+        if (nivel < 500) {
+            funcion_pesada(nivel + 1);
+        };
+    }
+];
+
+main {
+    frames_creados = 0;
+    
+    print("=== Test VM: Recursion con Memoria Intensiva ===");
+    print("Creando 500 frames con 150 enteros cada uno...");
+    funcion_pesada(1);
+    print("Total frames creados: ", frames_creados);
+}
+end

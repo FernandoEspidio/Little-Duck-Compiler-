@@ -1,0 +1,22 @@
+program test_vm_indice_negativo;
+var
+    arreglo : int[4];
+    indice_malo : int;
+    resultado : int;
+
+main {
+    print("=== Test VM: Indice de Arreglo Negativo ===");
+    
+    arreglo[0] = 10;
+    arreglo[1] = 20;
+    arreglo[2] = 30;
+    arreglo[3] = 40;
+    
+    indice_malo = 0 - 1;
+    print("Indice calculado: ", indice_malo);
+
+    resultado = arreglo[indice_malo];
+    print("Resultado: ", resultado);
+    print("Esta linea no deberia ejecutarse");
+}
+end
