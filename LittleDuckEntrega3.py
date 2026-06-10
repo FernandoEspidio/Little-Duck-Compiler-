@@ -14,6 +14,7 @@ import os
 import sys
 from collections import defaultdict
 from contextlib import redirect_stdout
+import re
 
 import ply.lex as lex
 
@@ -2047,30 +2048,11 @@ def format_symbol_table(parser):
                             v["scope"]))
     return "\n".join(lines)
 
-
-# =====================================================================
 # TERCERA ENTREGA: MEMORIA VIRTUAL Y MAQUINA VIRTUAL
-#
-# Esta seccion NO modifica el parser ni las acciones semanticas de la
-# entrega anterior. Trabaja como un "post-pase" (un asignador de memoria
-# / enlazador) que recibe los cuadruplos ya generados con NOMBRES y los
-# traduce a DIRECCIONES de memoria virtual segun la convencion de clase.
-#
-# Convencion de regiones (inicio de cada region):
-#   globales:   int 1000   float 2000   str 3000   void 4000
-#   retorno:    5000  (un unico registro de retorno, compartido)
-#   locales:    int 7000   float 8000   str 9000
-#   temporales: int 12000  float 13000  bool 14000
-#   constantes: int 17000  float 18000  str 19000
-#
-# Globales y constantes viven en UNA sola memoria compartida durante toda
-# la ejecucion. Las locales y temporales de cada FUNCION viven en un
-# activation record (frame) que se crea y destruye en cada llamada (lo
-# maneja la maquina virtual). El programa principal (main) no tiene
-# locales propias y usa la memoria global tambien para sus temporales.
-# =====================================================================
 
-import re
+# Globales y constantes viven en UNA sola memoria compartida durante toda
+# la ejecucion. Las locales y temporales de cada FUNCION viven en un　activation record que se crea 
+# y destruye en cada llamada (lo maneja la maquina virtual). 
 
 REGION_BASE = {
     "global_int": 1000, "global_float": 2000, "global_str": 3000, "global_void": 4000,
@@ -2078,18 +2060,18 @@ REGION_BASE = {
     "temp_int": 12000, "temp_float": 13000, "temp_bool": 14000, "temp_str": 15000,
     "cte_int": 17000, "cte_float": 18000, "cte_str": 19000,
 }
-RET_REG = 5000          # registro unico de retorno (memoria global)
-REGION_SPAN = 1000      # cada region tiene 1000 direcciones antes de la siguiente
-MAIN_OWNER = "__main__"  # dueno ficticio de los temporales del main
+
+RET_REG = 5000 # registro unico de retorno (memoria global)
+REGION_SPAN = 1000 # cada region tiene 1000 direcciones antes de la siguiente
+MAIN_OWNER = "__main__" # dueno ficticio de los temporales del main
 
 _TEMP_RE = re.compile(r"^t\d+$")
 _INT_RE = re.compile(r"^\d+$")
 _FLOAT_RE = re.compile(r"^\d+\.\d+$")
 _ARRAY_TARGET_RE = re.compile(r"^(\w+)\[(.+)\]$")
 
-
 def _temp_region(tipo):
-    # bool -> temp_bool, float -> temp_float, string -> temp_str, int -> temp_int
+    # bool - temp_bool, float - temp_float, string - temp_str, int - temp_int
     if tipo == "bool":
         return "temp_bool"
     if tipo == "float":
@@ -2098,49 +2080,46 @@ def _temp_region(tipo):
         return "temp_str"
     return "temp_int"
 
-
 def _suf(tipo):
     # El tipo 'string' usa el sufijo de region 'str'
     return "str" if tipo == "string" else tipo
 
-
+# Asigna direcciones de memoria virtual a variables, temporales y
+# constantes, y traduce la lista de cuadruplos de nombres a direcciones
 class MemoryAllocator:
-    """Asigna direcciones de memoria virtual a variables, temporales y
-    constantes, y traduce la lista de cuadruplos de nombres a direcciones."""
-
     def __init__(self, parser):
         self.parser = parser
         self.gscope = parser.global_scope
         self.quads = parser.quads
 
         # Mapas de direcciones
-        self.var_addr = {}     # (scope, nombre) -> direccion
-        self.temp_addr = {}    # (dueno, nombre_temp) -> direccion
-        self.const_addr = {}   # (valor_literal, tipo) -> direccion
-        self.const_list = []   # [(direccion, valor_python, tipo)] en orden de aparicion
+        self.var_addr = {} # (scope, nombre) - direccion
+        self.temp_addr = {} # (dueno, nombre_temp) - direccion
+        self.const_addr = {} # (valor_literal, tipo) - direccion
+        self.const_list = [] # [(direccion, valor_python, tipo)] en orden de aparicion
 
-        # Contadores de la memoria global (globales + temporales del main + cconstantes)
+        # Contadores de la memoria global
         self.global_counts = {k: 0 for k in REGION_BASE}
 
-        # Info por funcion: nombre -> dict con start_quad, return_type, params, contadores
+        # Informacion por funcion, es decir nombre - dict con start_quad, return_type, params, contadores
         self.func_info = {}
 
         # Rango de cuadruplos que pertenece a cada funcion / al main
-        self.ranges = {}       # dueno -> (primer_quad, ultimo_quad)
+        self.ranges = {} # dueno -> (primer_quad, ultimo_quad)
         self.main_start = None
-        self.errors = []       # errores de asignacion de memoria (p. ej. desborde de region)
+        self.errors = [] # errores de asignacion de memoria (p. ej. desborde de region)
 
-    # ---- utilidades ----------------------------------------------------
+    # Utilidades
 
+    # Devuelve a que funcion o al main pertenece un cuadruplo
     def _owner_of(self, quad_num):
-        # Devuelve a que funcion (o al main) pertenece un cuadruplo
         for owner, (lo, hi) in self.ranges.items():
             if owner != MAIN_OWNER and lo <= quad_num <= hi:
                 return owner
         return MAIN_OWNER
 
+    # Resuelve un nombre de variable a su scope ya sea local o global
     def _lookup_var_scope(self, name, owner):
-        # Resuelve un nombre de variable a su scope (local de la funcion o global)
         if owner != MAIN_OWNER:
             tabla = self.parser.func_dir.get(owner, {}).get("var_table", {})
             if name in tabla:
@@ -2150,7 +2129,7 @@ class MemoryAllocator:
             return self.gscope
         return None
 
-    # ---- pase principal ------------------------------------------------
+    # pase principal
 
     def allocate(self):
         self._compute_ranges()
@@ -2159,8 +2138,8 @@ class MemoryAllocator:
         self._alloc_temps()
         self._alloc_constants()
 
+    # main empieza en el destino del gotomain
     def _compute_ranges(self):
-        # main empieza en el destino del gotomain (cuadruplo 1)
         if self.quads:
             self.main_start = int(self.quads[0]["res"])
         # localizar el endfun de cada funcion
@@ -2184,6 +2163,8 @@ class MemoryAllocator:
                 "counts": {"local_int": 0, "local_float": 0, "local_str": 0,
                            "temp_int": 0, "temp_float": 0, "temp_bool": 0, "temp_str": 0},
             }
+
+     # funciones para asignar direcciones a cada categoria de memoria
 
     def _alloc_globals(self):
         tabla = self.parser.func_dir.get(self.gscope, {}).get("var_table", {})
@@ -2259,10 +2240,8 @@ class MemoryAllocator:
             for field in self._data_fields(q):
                 self._maybe_add_constant(field)
 
+    # Devuelve los campos del cuadruplo que son OPERANDOS DE DATOS
     def _data_fields(self, q):
-        # Devuelve los campos del cuadruplo que son OPERANDOS DE DATOS
-        # (pueden ser constantes). Ignora numeros de cuadruplo, limites de
-        # arreglo, nombres de funcion, etc.
         op = q["op"]
         L, R, S = q["argl"], q["argr"], q["res"]
         out = []
@@ -2273,7 +2252,7 @@ class MemoryAllocator:
             out += [L, S]
         elif op == "=":
             m = _ARRAY_TARGET_RE.match(str(S)) if isinstance(S, str) else None
-            if m:                      # escritura a arreglo: a[idx]
+            if m:# escritura a arreglo: a[idx]
                 out += [L, m.group(2), m.group(1)]
             elif isinstance(L, str) and L.endswith("_ret"):
                 out += [S]
@@ -2285,7 +2264,7 @@ class MemoryAllocator:
             if L != "newline":
                 out += [L]
         elif op == "ver":
-            out += [L]                 # argR/res son limites literales, no constantes
+            out += [L] # argR/res son limites literales, no constantes
         elif op == "[]":
             out += [L, R, S]
         elif op == "param":
@@ -2328,8 +2307,7 @@ class MemoryAllocator:
         self.const_addr[key] = addr
         self.const_list.append((addr, py, tipo))
 
-    # ---- resolucion de un operando a direccion -------------------------
-
+    # resolucion de un operando a direccion 
     def resolve(self, value, owner):
         if value is None:
             return -1
@@ -2358,8 +2336,7 @@ class MemoryAllocator:
         # no deberia ocurrir
         raise ValueError("operando no resuelto: %r (en %s)" % (value, owner))
 
-    # ---- traduccion de cuadruplos a direcciones ------------------------
-
+    # traduccion de cuadruplos a direcciones
     def translate_quads(self):
         out = []
         for q in self.quads:
@@ -2417,18 +2394,19 @@ class MemoryAllocator:
             out.append([q["num"]] + nq)
         return out
 
-    # ---- impresion de la representacion intermedia para la VM ----------
+    """
+    Impresion de la representacion intermedia para la VM 
 
+    Forma de los　quads:
+    - cons:  <valor>  <direccion> 
+    - memo:  <region> <cantidad> 
+    - func:  un bloque por funcion 
+    - quads: <num> <op> <argL> <argR> <res> 
+    """
     def format_object_ir(self):
-        """Forma final de la RI, apegada a la convencion vista en clase:
-        - cons:  <valor>  <direccion>   (el tipo se infiere por el rango)
-        - memo:  <region> <cantidad>    (solo regiones con cantidad > 0)
-        - func:  un bloque por funcion (extension para funciones/arreglos)
-        - quads: <num> <op> <argL> <argR> <res>   (solo direcciones)
-        Es el archivo que la maquina virtual carga y ejecuta."""
         lines = []
 
-        # Seccion de constantes:  valor  direccion  (valor primero, como en clase)
+        # Seccion de constantes a través del valor  direccion  (valor primero, como en clase)
         lines.append("cons")
         for addr, py, tipo in self.const_list:
             if tipo == "str":
@@ -2439,8 +2417,8 @@ class MemoryAllocator:
             lines.append("%s\t%d" % (val, addr))
         lines.append("")
 
-        # Seccion de memoria global (globales + temporales del main + constantes).
-        # Solo se listan las regiones con cantidad > 0; lo ausente vale 0.
+        # Seccion de memoria global 
+        # Solo se listan las regiones con cantidad > 0, lo ausente vale 0
         lines.append("memo")
         for region in ("global_int", "global_float", "global_str", "global_void",
                        "temp_int", "temp_float", "temp_bool", "temp_str",
@@ -2449,8 +2427,7 @@ class MemoryAllocator:
                 lines.append("%s %d" % (region, self.global_counts[region]))
         lines.append("")
 
-        # Un bloque por funcion con la memoria que requiere su frame.
-        # (solo se imprime si hay funciones; lo ausente significa "no hay")
+        # Un bloque por funcion con la memoria que requiere su frame
         if self.func_info:
             lines.append("func")
             for fname, fi in self.func_info.items():
@@ -2471,11 +2448,12 @@ class MemoryAllocator:
             lines.append("\t".join(str(x) for x in row))
         return "\n".join(lines) + "\n"
 
-    # ---- impresion de la RI con nombres + direcciones (debug) ----------
-
+    # impresion de los quads con nombres y sus direcciones
+    
+    """
+    Quads para hacer debug con NOMBRES y, al lado, la direccion de cada operando
+    """
     def format_debug_ir(self):
-        """RI con NOMBRES (legible) y, al lado, la direccion de cada
-        operando. Util para depurar y para el reporte."""
         lines = []
         lines.append("REPRESENTACION INTERMEDIA (nombres) - solo debug")
         lines.append("")
@@ -2495,7 +2473,7 @@ class MemoryAllocator:
                          (q["num"], q["op"], col, fit(q["argl"]),
                           col, fit(q["argr"]), col, fit(q["res"]), rt))
 
-        # Mapa de direcciones (constantes, globales, locales, temporales)
+        # Mapa de direcciones
         lines.append("")
         lines.append("MAPA DE DIRECCIONES DE MEMORIA VIRTUAL")
         lines.append("")
@@ -2525,18 +2503,15 @@ class MemoryAllocator:
         return "\n".join(lines) + "\n"
 
 
-# =====================================================================
-# PUNTO DE ENTRADA: compila input.txt y ejecuta su RI en la maquina virtual
-# =====================================================================
+# Lectura de input, compila input.txt y ejecuta los quads en la maquina virtual
 
 ARCHIVO_FUENTE = "input.txt"
-ARCHIVO_RI_NOMBRES = "ri_nombres.txt"   # RI con nombres, para debug
-ARCHIVO_RI_MEMORIA = "quacks.txt"   # RI con direcciones, la ejecuta la VM
+ARCHIVO_RI_NOMBRES = "ri_nombres.txt" # Quads con nombres, para debug
+ARCHIVO_RI_MEMORIA = "quacks.txt" # Quads con direcciones, la ejecuta la VM
 
 
 def main():
-    # 1) Leer el unico archivo de entrada (input.txt por defecto, o el nombre
-    #    pasado por terminal)
+    # Leer el archivo de entrada input.txt o el nombre pasado por terminal)
     nombre = sys.argv[1] if len(sys.argv) > 1 else ARCHIVO_FUENTE
     try:
         source = open(nombre).read()
@@ -2544,16 +2519,16 @@ def main():
         print("No se encontro el archivo '%s'." % nombre)
         return
 
-    # 2) Compilar: lexico, sintaxis, semantica
+    # Proceso de compilación de lexico, sintaxis, semantica
     parser = Parser(tokenizer=Tokenizer(keep_comments=False))
     ok = parser.parse(source)
 
     if not ok:
         print("Errores de compilacion:")
         print_all_errors(parser)
-        return  # abortar: no se ejecuta nada
+        return # abortar: no se ejecuta nada
 
-    # 3) Generar la representacion intermedia con memoria virtual
+    # Generar la representacion intermedia con memoria virtual
     alloc = MemoryAllocator(parser)
     alloc.allocate()
     if alloc.errors:
@@ -2564,13 +2539,13 @@ def main():
     obj_ir = alloc.format_object_ir()
     debug_ir = alloc.format_debug_ir()
 
-    # Archivos de salida (sin imprimir mensajes extra en exito)
+    # Archivos de salida 
     with open(ARCHIVO_RI_NOMBRES, "w", encoding="utf-8") as f:
         f.write(debug_ir)
     with open(ARCHIVO_RI_MEMORIA, "w", encoding="utf-8") as f:
         f.write(obj_ir)
 
-    # 4) Ejecutar la RI en la maquina virtual (independiente)
+    # 4) Ejecutar los quads en la maquina virtual 
     from quack_vm import VirtualMachine
     vm = VirtualMachine()
     try:
@@ -2582,7 +2557,7 @@ def main():
         return
 
 
-# Excepcion de runtime compartida con la VM (se re-exporta desde quack_vm)
+# Excepcion de runtime compartida con la VM (se re exporta desde quack_vm)
 try:
     from quack_vm import VMRuntimeError
 except Exception:
