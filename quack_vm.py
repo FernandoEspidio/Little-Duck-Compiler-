@@ -1,32 +1,23 @@
-# -*- coding: utf-8 -*-
-# =====================================================================
-# Quack Virtual Machine  -  Little Duck (Equipo 5)
-#
-# Programa INDEPENDIENTE del compilador. Carga un archivo .txt con la
-# representacion intermedia en DIRECCIONES de memoria virtual, simula la
-# memoria por regiones (restringiendo el acceso solo a lo reservado) e
-# interpreta los cuadruplos, ejecutando el programa.
-#
-# Errores de runtime que reporta:
-#   - division (o modulo) entre cero
-#   - acceso a memoria virtual no reservada
-#   - indice de arreglo fuera de rango
-#   - recursion maxima excedida
-#
-# Estructura de la RI que recibe (convencion del equipo):
-#   cons
-#   <dir>\t<tipo>\t<valor>            # constantes y su direccion
-#   memo
-#   <region> <cantidad>               # memoria global (globales + temps del main + ctes)
-#   func
-#   <nombre>\t<start_quad>\t<tipo>    # un bloque por funcion
-#   params <n>
-#   param_addr <a1> <a2> ...
-#   local_int/.../temp_bool <n>
-#   end
-#   quads
-#   <num>\t<op>\t<argL>\t<argR>\t<res>
-# =====================================================================
+"""
+-*- coding: utf-8 -*-
+=====================================================================
+Quack Virtual Machine  -  Little Duck (Equipo 5)
+
+Estructura de la quads que se recibe (convencion del equipo):
+  cons
+  <dir>\t<tipo>\t<valor> - constantes y su direccion
+  memo
+  <region> <cantidad> - memoria global (globales + temps del main + ctes)
+  func
+  <nombre>\t<start_quad>\t<tipo> - un bloque por funcion
+  params <n>
+  param_addr <a1> <a2> ...
+  local_int/.../temp_bool <n>
+  end
+  quads
+  <num>\t<op>\t<argL>\t<argR>\t<res>
+
+"""
 
 import sys
 
@@ -38,9 +29,10 @@ REGION_BASE = {
     "temp_int": 12000, "temp_float": 13000, "temp_bool": 14000, "temp_str": 15000,
     "cte_int": 17000, "cte_float": 18000, "cte_str": 19000,
 }
-RET_REG = 5000          # registro unico de retorno
-REGION_SPAN = 1000      # tamano del segmento de cada region
-RECURSION_LIMIT = 5000  # profundidad maxima de la pila de llamadas
+
+RET_REG = 5000 # registro unico de retorno
+REGION_SPAN = 1000 # tamano del segmento de cada region
+RECURSION_LIMIT = 5000 # profundidad maxima de la pila de llamadas
 
 
 class VMRuntimeError(Exception):
@@ -63,25 +55,25 @@ class Frame:
     def __init__(self, func_name, return_quad):
         self.func_name = func_name
         self.return_quad = return_quad
-        self.mem = {}        # direccion -> valor (locales y temporales)
+        self.mem = {} # direccion - valor (locales y temporales)
 
 
 class VirtualMachine:
     def __init__(self):
-        self.const_mem = {}      # direccion -> valor (solo lectura)
-        self.global_mem = {}     # globales + temporales del main + registro de retorno
-        self.global_counts = {}  # region -> cantidad reservada (memoria global)
-        self.func_dir = {}       # nombre -> dict con start_quad, return_type, param_addr, counts
-        self.quads = []          # lista de Quack (1-indexada: quads[0] no se usa)
-        self.call_stack = []     # pila de Frame (vacia => estamos en el main)
-        self.pending_stack = []  # pila de llamadas en preparacion (soporta anidacion)
+        self.const_mem = {} # direccion - valor (solo lectura)
+        self.global_mem = {} # globales + temporales del main + registro de retorno
+        self.global_counts = {} # region - cantidad reservada (memoria global)
+        self.func_dir = {} # nombre - dict con start_quad, return_type, param_addr, counts
+        self.quads = [] # lista de Quack (1-indexada: quads[0] no se usa)
+        self.call_stack = [] # pila de Frame (vacia si se esta en el main)
+        self.pending_stack = [] # pila de llamadas en preparacion (soporta anidacion)
 
-    # ---- carga del archivo de RI --------------------------------------
+    # carga del archivo de quads
 
     def load(self, text):
         section = None
         cur_func = None
-        self.quads = [None]   # indice 0 sin usar; los cuadruplos empiezan en 1
+        self.quads = [None] # indice 0 sin usar; los cuadruplos empiezan en 1
 
         for raw in text.split("\n"):
             line = raw.rstrip()
@@ -133,9 +125,8 @@ class VirtualMachine:
                 # num op argL argR res
                 self.quads.append(Quack(toks[:5]))
 
-        # Red de seguridad: si una funcion no trae 'param_addr' (convencion de
-        # clase, que en su lugar usa el indice del parametro), se deriva
-        # asumiendo que los parametros ocupan los primeros locales enteros.
+        # Red de seguridad: si una funcion no trae 'param_addr' (convencion de clase, que en su lugar usa el indice del parametro),
+        # se deriva asumiendo que los parametros ocupan los primeros locales enteros.
         for info in self.func_dir.values():
             if not info["param_addr"] and info["params"] > 0:
                 base = REGION_BASE["local_int"]
@@ -153,8 +144,7 @@ class VirtualMachine:
 
     def _parse_cons_line(self, line):
         # Acepta dos formatos:
-        #  (1) convencion de clase:    <valor>  <direccion>   (valor primero;
-        #      el tipo se infiere por el rango de la direccion)
+        #  (1) convencion de clase:    <valor>  <direccion>   (valor primero; el tipo se infiere por el rango de la direccion)
         #  (2) extendido del equipo:   <direccion>\t<cte_tipo>\t<valor>
         line = line.strip()
         cols = line.split("\t")
@@ -186,7 +176,7 @@ class VirtualMachine:
                 i += 1
         return "".join(out)
 
-    # ---- simulacion de memoria por regiones ---------------------------
+    # Simulacion de memoria por regiones 
 
     def _region_of(self, addr):
         if addr == RET_REG:
@@ -197,13 +187,10 @@ class VirtualMachine:
                 return region
         return None
 
+    # Una direccion es valida si cae dentro del SEGMENTO de una region que esta reservada en el contexto actual. Se reserva el segmento de la
+    # region (no un conteo exacto), de modo que la VM tolera las convenciones de clase y solo marca como error a regiones no
+    # declaradas, memoria local/temporal sin un frame activo, o direcciones fuera de todo segmento.
     def _check_reserved(self, addr, region):
-        # Una direccion es valida si cae dentro del SEGMENTO de una region que
-        # esta reservada en el contexto actual. Se reserva el segmento de la
-        # region (no un conteo exacto), de modo que la VM tolera las
-        # convenciones de clase y solo marca como error: regiones no
-        # declaradas, memoria local/temporal sin un frame activo, o
-        # direcciones fuera de todo segmento.
         offset = addr - REGION_BASE[region]
         if not (0 <= offset < REGION_SPAN):
             self._fail("direccion fuera del segmento de su region (%d)" % addr)
@@ -226,21 +213,21 @@ class VirtualMachine:
                 self._fail("acceso a memoria no reservada en la funcion: %s (dir %d)"
                            % (region, addr))
         else:
-            # en el main no hay locales; solo temporales declaradas en memo
+            # en el main no hay locales, solo temporales declaradas en memo
             if not region.startswith("temp_") or self.global_counts.get(region, 0) <= 0:
                 self._fail("acceso a memoria no reservada fuera de una funcion: "
                            "%s (dir %d)" % (region, addr))
 
+    # Valor por defecto de una celda reservada pero aun no escrita,
+    # segun el tipo de su region (decision de diseno del equipo).
     def _default_for(self, region):
-        # Valor por defecto de una celda reservada pero aun no escrita,
-        # segun el tipo de su region (decision de diseno del equipo).
         if region.endswith("_float"):
             return 0.0
         if region.endswith("_str"):
             return ""
         if region.endswith("_bool"):
             return False
-        return 0   # *_int y global_void
+        return 0 # *_int y global_void
 
     def read(self, addr):
         addr = int(addr)
@@ -255,10 +242,10 @@ class VirtualMachine:
         default = self._default_for(region)
         if region.startswith("global_"):
             return self.global_mem.get(addr, default)
-        # local_* / temp_*
+
         if self.call_stack:
             return self.call_stack[-1].mem.get(addr, default)
-        return self.global_mem.get(addr, default)   # temporales del main
+        return self.global_mem.get(addr, default) # temporales del main
 
     def write(self, addr, value):
         addr = int(addr)
@@ -276,13 +263,14 @@ class VirtualMachine:
         elif self.call_stack:
             self.call_stack[-1].mem[addr] = value
         else:
-            self.global_mem[addr] = value      # temporales del main
+            self.global_mem[addr] = value # temporales del main
 
     def _fail(self, msg):
         raise VMRuntimeError("%s [cuadruplo %d]" % (msg, self.cur))
 
-    # ---- ejecucion -----------------------------------------------------
-
+    # ejecucion 
+    # la funcion run itera sobre los cuadruplos, ejecutando cada uno segun su operador, 
+    # hasta que se acaben o se alcance un end 
     def run(self):
         self.cur = 1
         n = len(self.quads) - 1
@@ -381,7 +369,8 @@ class VirtualMachine:
 
         sys.stdout.flush()
 
-    # ---- helpers de ejecucion -----------------------------------------
+    # Funciones auxiliares para la ejecucion de operadores y otras tareas, 
+    # conviertiendo valores a booleanos, números o cadenas segun se necesite, o reportando errores de runtime.
 
     def _truth(self, v):
         return bool(v)
@@ -404,7 +393,7 @@ class VirtualMachine:
         elif op == "/":
             if b == 0:
                 self._fail("division entre cero")
-            r = a / b                     # division real (produce float)
+            r = a / b # division real (produce float)
         elif op == "%":
             if b == 0:
                 self._fail("modulo entre cero")
@@ -446,8 +435,10 @@ class VirtualMachine:
         start = int(q.resultado)
         if len(self.call_stack) + 1 > RECURSION_LIMIT:
             self._fail("recursion maxima excedida (limite %d)" % RECURSION_LIMIT)
-        # nuevo frame; regresa al cuadruplo siguiente al gosub
+
+        # nuevo frame, regresa al cuadruplo siguiente al gosub
         frame = Frame(func, self.cur + 1)
+
         # copiar los argumentos staged a las direcciones de los parametros
         pending = self.pending_stack.pop()
         param_addr = self.func_dir[func]["param_addr"]
@@ -457,11 +448,11 @@ class VirtualMachine:
         self.cur = start
 
     def _return(self, q):
-        # Guarda defensiva: el compilador prohibe 'return' en el main, pero si
-        # se ejecutara una RI sin frame activo, se trata como fin de programa.
+        # el compilador prohibe 'return' en el main, pero si
+        # se ejecutara un quad sin frame activo, se trata como fin de programa.
         if not self.call_stack:
             sys.stdout.flush()
-            self.cur = len(self.quads)   # detiene el loop
+            self.cur = len(self.quads) # detiene el loop
             return
         if q.arg_izq != "-1" and q.arg_izq != -1:
             self.global_mem[RET_REG] = self.read(q.arg_izq)
@@ -474,14 +465,13 @@ class VirtualMachine:
         self.cur = frame.return_quad
 
 
-# ---- uso como programa independiente ----------------------------------
-
+# Función main que carga el archivo de Representación intermedia y ejecuta la VM
 def main():
-    archivo = sys.argv[1] if len(sys.argv) > 1 else "ri_memoria.txt"
+    archivo = sys.argv[1] if len(sys.argv) > 1 else "quacks.txt"
     try:
         text = open(archivo, encoding="utf-8").read()
     except FileNotFoundError:
-        print("No se encontro el archivo de RI '%s'." % archivo)
+        print("No se encontro el archivo de quads'%s'." % archivo)
         return
     vm = VirtualMachine()
     try:
